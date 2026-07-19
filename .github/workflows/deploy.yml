@@ -1,0 +1,51 @@
+name: Deploy web to Cloudflare Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# 동시에 여러 배포가 겹치지 않도록 직렬화
+concurrency:
+  group: cf-pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      deployments: write
+    # 시크릿(CLOUDFLARE_API_TOKEN)이 등록되기 전에는 배포 단계를 건너뛰고 빌드만 검증한다.
+    env:
+      HAS_CF: ${{ secrets.CLOUDFLARE_API_TOKEN != '' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: Build web (expo export -p web → dist)
+        run: npm run build:web
+
+      # 최초 1회: 프로젝트가 없으면 생성 (이미 있으면 에러 무시)
+      - name: Ensure Cloudflare Pages project
+        if: ${{ env.HAS_CF == 'true' }}
+        continue-on-error: true
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages project create safelense-fe --production-branch=main
+
+      - name: Deploy to Cloudflare Pages
+        if: ${{ env.HAS_CF == 'true' }}
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy dist --project-name=safelense-fe --branch=main

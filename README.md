@@ -72,7 +72,8 @@ assets/
 
 ## 웹 배포 (Cloudflare Pages)
 
-`npm run build:web` → `dist/` 정적 SPA. 설정은 [DEPLOY.md](./DEPLOY.md) 참고.
+`main` push 시 GitHub Actions가 자동 빌드·배포합니다(시크릿 2개만 등록하면 활성화).
+로컬 빌드는 `npm run build:web` → `dist/`. 자세한 설정은 [DEPLOY.md](./DEPLOY.md) 참고.
 
 ## 디자인
 
