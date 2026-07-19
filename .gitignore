@@ -9,6 +9,9 @@ dist/
 web-build/
 expo-env.d.ts
 
+# Cloudflare / Wrangler
+.wrangler/
+
 # Native
 .kotlin/
 *.orig.*

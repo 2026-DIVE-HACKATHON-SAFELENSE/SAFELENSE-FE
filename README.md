@@ -19,7 +19,8 @@ React Native (Expo · TypeScript)로 구현합니다.
   - `behaviors.tsx` — 2단계 행태 체크리스트(9항목, 의심 행태 감지 배너)
   - `analyzing.tsx` — AI 분석 로딩(공공→민간→유사사례→리포트 4단계 자동 진행)
   - `report.tsx` — 종합 위험 지수 리포트(게이지 + 세그먼트 탭 + 지원센터 안내)
-- **내 집 / 마이페이지** — 플레이스홀더(디자인 대기)
+- **내 집** (`src/app/(tabs)/house.tsx`) — 물건 정보 입력 폼(주소·보증금·건물 유형·추가 정보)
+- **마이페이지** (`src/app/(tabs)/mypage.tsx`) — 게스트/로그인 상태(통계·로그아웃), `src/auth.tsx` mock 인증
 
 ## 기술 스택
 
@@ -65,9 +66,13 @@ assets/
 
 - 카카오 로그인 실연동 (`@react-native-seoul/kakao-login`, dev build + 앱키)
 - 계약 중 / 계약 후 분석 플로우
-- 내 집 정보 등록 · 마이페이지 실제 화면
+- 내 집 폼 입력값을 분석에 실제 연동 (현재는 로컬 상태)
 - 리포트 유사사례/체크리스트요약/권고사항 탭 실데이터 연동
 - 실제 공공·민간 데이터 API 연동 (현재 리포트 수치는 데모 값)
+
+## 웹 배포 (Cloudflare Pages)
+
+`npm run build:web` → `dist/` 정적 SPA. 설정은 [DEPLOY.md](./DEPLOY.md) 참고.
 
 ## 디자인
 

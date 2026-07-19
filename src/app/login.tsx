@@ -2,18 +2,28 @@ import { router } from 'expo-router';
 import { Alert, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { useAuth } from '@/auth';
 import { AppText } from '@/components/AppText';
 import { KakaoLogo } from '@/components/KakaoLogo';
 import { colors, radius } from '@/theme';
 
-// Kakao auth is stubbed for now: entering the app is mocked so the rest of the
-// flow is reachable. Real @react-native-seoul/kakao-login lands in a later task.
-const enterApp = () => router.replace('/home');
 const stub = (feature: string) =>
   Alert.alert(feature, '준비 중입니다. 이후 작업에서 추가됩니다.');
 
 export default function Login() {
   const insets = useSafeAreaInsets();
+  const { signIn, browseAsGuest } = useAuth();
+
+  // Kakao auth is stubbed: sign-in is mocked so the app is reachable. "둘러보기"
+  // enters as a guest. Real @react-native-seoul/kakao-login lands in a later task.
+  const loginWithKakao = () => {
+    signIn();
+    router.replace('/home');
+  };
+  const browse = () => {
+    browseAsGuest();
+    router.replace('/home');
+  };
 
   return (
     <View style={[styles.screen, { paddingTop: insets.top }]}>
@@ -28,7 +38,7 @@ export default function Login() {
 
       <View style={styles.loginBlock}>
         <Pressable
-          onPress={enterApp}
+          onPress={loginWithKakao}
           style={({ pressed }) => [styles.kakaoBtn, pressed && styles.pressed]}
         >
           <KakaoLogo size={24} />
@@ -52,7 +62,7 @@ export default function Login() {
             </AppText>
           </Pressable>
           <View style={styles.divider} />
-          <Pressable onPress={enterApp} hitSlop={8}>
+          <Pressable onPress={browse} hitSlop={8}>
             <AppText weight="semibold" color={colors.textSecondary} style={styles.footerLink}>
               둘러보기
             </AppText>

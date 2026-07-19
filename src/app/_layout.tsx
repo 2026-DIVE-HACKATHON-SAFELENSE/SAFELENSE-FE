@@ -6,6 +6,7 @@ import { useEffect } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import { AuthProvider } from '@/auth';
 import { colors } from '@/theme';
 
 // Keep the native splash up until Pretendard is ready, so text never flashes
@@ -33,8 +34,9 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={styles.root}>
       <SafeAreaProvider>
-        <StatusBar style="dark" />
-        <Stack
+        <AuthProvider>
+          <StatusBar style="dark" />
+          <Stack
           screenOptions={{
             headerShown: false,
             animation: 'fade',
@@ -47,9 +49,10 @@ export default function RootLayout() {
           <Stack.Screen name="(tabs)" />
           <Stack.Screen name="pre-contract/checklist" options={{ animation: 'slide_from_right' }} />
           <Stack.Screen name="pre-contract/behaviors" options={{ animation: 'slide_from_right' }} />
-          <Stack.Screen name="pre-contract/analyzing" options={{ gestureEnabled: false }} />
-          <Stack.Screen name="pre-contract/report" options={{ gestureEnabled: false }} />
-        </Stack>
+            <Stack.Screen name="pre-contract/analyzing" options={{ gestureEnabled: false }} />
+            <Stack.Screen name="pre-contract/report" options={{ gestureEnabled: false }} />
+          </Stack>
+        </AuthProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );
