@@ -44,6 +44,11 @@ export default function RootLayout() {
           <Stack.Screen name="index" />
           <Stack.Screen name="onboarding" />
           <Stack.Screen name="login" />
+          <Stack.Screen name="(tabs)" />
+          <Stack.Screen name="pre-contract/checklist" options={{ animation: 'slide_from_right' }} />
+          <Stack.Screen name="pre-contract/behaviors" options={{ animation: 'slide_from_right' }} />
+          <Stack.Screen name="pre-contract/analyzing" options={{ gestureEnabled: false }} />
+          <Stack.Screen name="pre-contract/report" options={{ gestureEnabled: false }} />
         </Stack>
       </SafeAreaProvider>
     </GestureHandlerRootView>

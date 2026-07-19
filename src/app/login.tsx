@@ -1,3 +1,4 @@
+import { router } from 'expo-router';
 import { Alert, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -5,10 +6,11 @@ import { AppText } from '@/components/AppText';
 import { KakaoLogo } from '@/components/KakaoLogo';
 import { colors, radius } from '@/theme';
 
-// Auth is stubbed during the onboarding milestone. These will be wired to the
-// real Kakao SDK / sign-up / guest-browse flows in a later task.
+// Kakao auth is stubbed for now: entering the app is mocked so the rest of the
+// flow is reachable. Real @react-native-seoul/kakao-login lands in a later task.
+const enterApp = () => router.replace('/home');
 const stub = (feature: string) =>
-  Alert.alert(feature, '온보딩 단계입니다. 로그인 연동은 이후 작업에서 추가됩니다.');
+  Alert.alert(feature, '준비 중입니다. 이후 작업에서 추가됩니다.');
 
 export default function Login() {
   const insets = useSafeAreaInsets();
@@ -26,7 +28,7 @@ export default function Login() {
 
       <View style={styles.loginBlock}>
         <Pressable
-          onPress={() => stub('카카오 로그인')}
+          onPress={enterApp}
           style={({ pressed }) => [styles.kakaoBtn, pressed && styles.pressed]}
         >
           <KakaoLogo size={24} />
@@ -50,7 +52,7 @@ export default function Login() {
             </AppText>
           </Pressable>
           <View style={styles.divider} />
-          <Pressable onPress={() => stub('둘러보기')} hitSlop={8}>
+          <Pressable onPress={enterApp} hitSlop={8}>
             <AppText weight="semibold" color={colors.textSecondary} style={styles.footerLink}>
               둘러보기
             </AppText>

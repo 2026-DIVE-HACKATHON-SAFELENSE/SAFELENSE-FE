@@ -21,17 +21,52 @@ export const colors = {
   /** Inactive pagination dot. */
   dotInactive: '#C7CFE8',
 
-  /** Skip-button hairline border. */
+  /** Indigo hairline used on most cards / the skip button. */
+  hairline: 'rgba(67, 97, 238, 0.1)',
+  /** @deprecated alias of `hairline`, kept for existing onboarding code. */
   skipBorder: 'rgba(67, 97, 238, 0.1)',
 
-  /** Slide 1 badges. */
+  /** Brand indigo (계약 전 accent, active tab, links). */
+  brand: '#4361EE',
+
+  /** Slide 1 badges / generic status. */
   danger: '#FB2C36',
   safe: '#009966',
+  /** Completed / safe green (분석 완료, 안전 범위). */
+  success: '#00A96E',
+
+  /** Home banner (light purple). */
+  bannerBg: '#E8E7FF',
+  /** Chevron circle inside cards (same as screen bg). */
+  chevronBg: '#F2F4FF',
+
+  /** Severity badges (계약 전 행태 체크리스트). */
+  dangerText: '#FB2C36',
+  dangerBg: '#FFE2E2',
+  dangerHighlight: '#FEF2F2',
+  dangerBorder: '#FFC9C9',
+  dangerTitle: '#C10007',
+  warnText: '#FF6900',
+  warnBg: '#FFEDD4',
+  observeText: '#E17100',
+  observeBg: '#FEF3C6',
+
+  /** Green "checked" state (계약 전 서류 체크리스트). */
+  greenText: '#059669',
+  greenBg: '#F0FDF4',
+  greenBorder: '#B9F8CF',
 
   /** Kakao brand. */
   kakao: '#FEE500',
   kakaoText: 'rgba(0, 0, 0, 0.85)',
   kakaoSubtext: '#767676',
+} as const;
+
+/** Per-stage accent config for the home cards. */
+export const stageAccent = {
+  before: { chipText: '#155DFC', chipBg: '#EFF6FF' },
+  during: { chipText: '#F54900', chipBg: '#FFF7ED' },
+  after: { chipText: '#7F22FE', chipBg: '#F5F3FF' },
 } as const;
 
 /**

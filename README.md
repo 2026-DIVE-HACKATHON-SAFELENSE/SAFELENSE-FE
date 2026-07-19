@@ -5,11 +5,21 @@
 
 React Native (Expo · TypeScript)로 구현합니다.
 
-## 현재 구현 범위: 온보딩
+## 구현 범위
 
+**온보딩**
 - **스플래시** (`src/app/index.tsx`) — 집 로고 → 돋보기가 겹쳐지며 SafeLens 로고 완성, 이후 온보딩으로 이동
 - **온보딩 캐러셀** (`src/app/onboarding.tsx`) — 3개 인트로 슬라이드(파랑/보라/초록), Skip · 다음 · 시작하기 · 페이지 인디케이터
-- **로그인** (`src/app/login.tsx`) — 카카오 로그인(현재 stub), 회원가입 · 둘러보기, 약관 안내
+- **로그인** (`src/app/login.tsx`) — 카카오 로그인(현재 stub → 홈 진입), 회원가입 · 둘러보기, 약관 안내
+
+**메인 앱** (로그인 이후)
+- **홈** (`src/app/(tabs)/home.tsx`) — 내 집 정보 배너 + 계약 전/중/후 단계 카드 + 하단 탭(홈·내 집·마이페이지)
+- **계약 전 플로우** (`src/app/pre-contract/`) — 3단계 위저드
+  - `checklist.tsx` — 1단계 서류 체크리스트(6항목, 체크 시 초록 + 진행바)
+  - `behaviors.tsx` — 2단계 행태 체크리스트(9항목, 의심 행태 감지 배너)
+  - `analyzing.tsx` — AI 분석 로딩(공공→민간→유사사례→리포트 4단계 자동 진행)
+  - `report.tsx` — 종합 위험 지수 리포트(게이지 + 세그먼트 탭 + 지원센터 안내)
+- **내 집 / 마이페이지** — 플레이스홀더(디자인 대기)
 
 ## 기술 스택
 
@@ -38,15 +48,13 @@ src/
   app/                      # Expo Router 라우트
     _layout.tsx             # 루트 Stack, Pretendard 로드, 스플래시 게이팅
     index.tsx               # 스플래시
-    onboarding.tsx          # 온보딩 캐러셀 (슬라이드 데이터 포함)
+    onboarding.tsx          # 온보딩 캐러셀
     login.tsx               # 로그인
-  components/
-    AppText.tsx             # Pretendard 텍스트 프리미티브
-    GradientButton.tsx      # 다음/시작하기 CTA
-    SkipButton.tsx          # 건너뛰기
-    Pagination.tsx          # 페이지 인디케이터
-    KakaoLogo.tsx           # 카카오 심볼 (SVG)
-    onboarding/             # 슬라이드 레이아웃 + 일러스트 3종
+    (tabs)/                 # 하단 탭 네비게이터 (홈·내 집·마이페이지)
+    pre-contract/           # 계약 전 위저드 (checklist→behaviors→analyzing→report)
+  components/               # AppText, GradientButton, WideButton, Badge,
+                            # ChecklistCard, WizardHeader, Pagination, ComingSoon,
+                            # KakaoLogo, onboarding/ 일러스트
   theme.ts                  # 색상·폰트·radius 등 디자인 토큰
 assets/
   fonts/                    # Pretendard OTF
@@ -56,8 +64,10 @@ assets/
 ## 남은 작업 (다음 마일스톤)
 
 - 카카오 로그인 실연동 (`@react-native-seoul/kakao-login`, dev build + 앱키)
-- 홈/분석 등 온보딩 이후 화면
-- "둘러보기"(비로그인) · "회원가입" 플로우
+- 계약 중 / 계약 후 분석 플로우
+- 내 집 정보 등록 · 마이페이지 실제 화면
+- 리포트 유사사례/체크리스트요약/권고사항 탭 실데이터 연동
+- 실제 공공·민간 데이터 API 연동 (현재 리포트 수치는 데모 값)
 
 ## 디자인
 
