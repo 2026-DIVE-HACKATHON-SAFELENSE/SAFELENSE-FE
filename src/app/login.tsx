@@ -1,0 +1,95 @@
+import { Alert, Pressable, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+import { AppText } from '@/components/AppText';
+import { KakaoLogo } from '@/components/KakaoLogo';
+import { colors, radius } from '@/theme';
+
+// Auth is stubbed during the onboarding milestone. These will be wired to the
+// real Kakao SDK / sign-up / guest-browse flows in a later task.
+const stub = (feature: string) =>
+  Alert.alert(feature, '온보딩 단계입니다. 로그인 연동은 이후 작업에서 추가됩니다.');
+
+export default function Login() {
+  const insets = useSafeAreaInsets();
+
+  return (
+    <View style={[styles.screen, { paddingTop: insets.top }]}>
+      <View style={styles.header}>
+        <AppText weight="bold" style={styles.title}>
+          로그인
+        </AppText>
+        <AppText color={colors.textSecondary} style={styles.subtitle}>
+          전세 사기로부터 내 보증금을 지킵니다
+        </AppText>
+      </View>
+
+      <View style={styles.loginBlock}>
+        <Pressable
+          onPress={() => stub('카카오 로그인')}
+          style={({ pressed }) => [styles.kakaoBtn, pressed && styles.pressed]}
+        >
+          <KakaoLogo size={24} />
+          <AppText weight="semibold" color={colors.kakaoText} style={styles.kakaoText}>
+            카카오로 시작하기
+          </AppText>
+          <View style={styles.kakaoSpacer} />
+        </Pressable>
+        <AppText weight="medium" color={colors.kakaoSubtext} style={styles.helper}>
+          소셜 로그인 계정으로 간편하게 시작해보세요.
+        </AppText>
+      </View>
+
+      <View style={styles.spacer} />
+
+      <View style={[styles.footer, { paddingBottom: insets.bottom + 24 }]}>
+        <View style={styles.footerLinks}>
+          <Pressable onPress={() => stub('회원가입')} hitSlop={8}>
+            <AppText weight="semibold" color={colors.textSecondary} style={styles.footerLink}>
+              회원가입
+            </AppText>
+          </Pressable>
+          <View style={styles.divider} />
+          <Pressable onPress={() => stub('둘러보기')} hitSlop={8}>
+            <AppText weight="semibold" color={colors.textSecondary} style={styles.footerLink}>
+              둘러보기
+            </AppText>
+          </Pressable>
+        </View>
+        <AppText color={colors.textMuted} style={styles.terms}>
+          로그인 시 <AppText color={colors.textMuted} style={styles.underline}>이용약관</AppText> 및{' '}
+          <AppText color={colors.textMuted} style={styles.underline}>개인정보처리방침</AppText>에 동의하게
+          됩니다
+        </AppText>
+      </View>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  screen: { flex: 1, backgroundColor: colors.bg, paddingHorizontal: 24 },
+  header: { alignItems: 'center', paddingTop: 120 },
+  title: { fontSize: 24, lineHeight: 32, color: colors.textPrimary },
+  subtitle: { fontSize: 16, lineHeight: 20, marginTop: 4 },
+  loginBlock: { marginTop: 80, alignItems: 'center', gap: 16 },
+  kakaoBtn: {
+    width: '100%',
+    height: 48,
+    borderRadius: 12,
+    backgroundColor: colors.kakao,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+  },
+  pressed: { opacity: 0.85 },
+  kakaoText: { flex: 1, fontSize: 16, textAlign: 'center' },
+  kakaoSpacer: { width: 24 },
+  helper: { fontSize: 14 },
+  spacer: { flex: 1 },
+  footer: { alignItems: 'center', gap: 16 },
+  footerLinks: { flexDirection: 'row', alignItems: 'center', gap: 16 },
+  footerLink: { fontSize: 14, lineHeight: 16 },
+  divider: { width: 1, height: 12, backgroundColor: colors.skipBorder },
+  terms: { fontSize: 10, lineHeight: 16, textAlign: 'center' },
+  underline: { textDecorationLine: 'underline' },
+});

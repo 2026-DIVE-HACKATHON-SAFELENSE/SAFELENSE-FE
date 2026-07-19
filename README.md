@@ -1,56 +1,64 @@
-# Welcome to your Expo app 👋
+# 세이프렌즈 (SafeLens) — Frontend
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+전세 사기로부터 보증금을 지키는 계약 리스크 분석 앱. AI가 계약 전·중·후 단계에서
+공공 데이터와 실제 상담 사례를 분석해 숨겨진 위험을 찾고, 취해야 할 행동까지 제안합니다.
 
-## Get started
+React Native (Expo · TypeScript)로 구현합니다.
 
-1. Install dependencies
+## 현재 구현 범위: 온보딩
 
-   ```bash
-   npm install
-   ```
+- **스플래시** (`src/app/index.tsx`) — 집 로고 → 돋보기가 겹쳐지며 SafeLens 로고 완성, 이후 온보딩으로 이동
+- **온보딩 캐러셀** (`src/app/onboarding.tsx`) — 3개 인트로 슬라이드(파랑/보라/초록), Skip · 다음 · 시작하기 · 페이지 인디케이터
+- **로그인** (`src/app/login.tsx`) — 카카오 로그인(현재 stub), 회원가입 · 둘러보기, 약관 안내
 
-2. Start the app
+## 기술 스택
 
-   ```bash
-   npx expo start
-   ```
+| | |
+|---|---|
+| 런타임 | Expo SDK 57 · React Native 0.86 · React 19.2 |
+| 라우팅 | Expo Router (파일 기반, `src/app/`) |
+| 언어 | TypeScript |
+| UI | expo-linear-gradient · react-native-svg · @expo/vector-icons |
+| 폰트 | Pretendard (Regular/Medium/SemiBold/Bold, 번들) |
 
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
+## 실행 방법
 
 ```bash
-npm run reset-project
+npm install
+npx expo start           # QR로 Expo Go 실행, 또는 아래 플랫폼 선택
+npx expo start --android # Android
+npx expo start --ios     # iOS (macOS 필요)
+npx expo start --web     # 웹 미리보기
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+## 프로젝트 구조
 
-### Other setup steps
+```
+src/
+  app/                      # Expo Router 라우트
+    _layout.tsx             # 루트 Stack, Pretendard 로드, 스플래시 게이팅
+    index.tsx               # 스플래시
+    onboarding.tsx          # 온보딩 캐러셀 (슬라이드 데이터 포함)
+    login.tsx               # 로그인
+  components/
+    AppText.tsx             # Pretendard 텍스트 프리미티브
+    GradientButton.tsx      # 다음/시작하기 CTA
+    SkipButton.tsx          # 건너뛰기
+    Pagination.tsx          # 페이지 인디케이터
+    KakaoLogo.tsx           # 카카오 심볼 (SVG)
+    onboarding/             # 슬라이드 레이아웃 + 일러스트 3종
+  theme.ts                  # 색상·폰트·radius 등 디자인 토큰
+assets/
+  fonts/                    # Pretendard OTF
+  images/onboarding/        # 스플래시 프레임
+```
 
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
+## 남은 작업 (다음 마일스톤)
 
-## Learn more
+- 카카오 로그인 실연동 (`@react-native-seoul/kakao-login`, dev build + 앱키)
+- 홈/분석 등 온보딩 이후 화면
+- "둘러보기"(비로그인) · "회원가입" 플로우
 
-To learn more about developing your project with Expo, look at the following resources:
+## 디자인
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+Figma `DIVE` 파일 기준으로 구현. 온보딩 색상 토큰은 `src/theme.ts` 참고.
