@@ -1,6 +1,6 @@
 import { Feather } from '@expo/vector-icons';
-import { type ReactNode } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { useEffect, useRef, type ReactNode } from 'react';
+import { Animated, Pressable, StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/AppText';
 import { colors, radius } from '@/theme';
@@ -30,6 +30,12 @@ export function ChecklistCard({
   radioColor,
   checkedTitleColor,
 }: Props) {
+  // Pop the check mark in/out instead of a hard cut on toggle.
+  const pop = useRef(new Animated.Value(checked ? 1 : 0)).current;
+  useEffect(() => {
+    Animated.spring(pop, { toValue: checked ? 1 : 0, friction: 5, tension: 160, useNativeDriver: true }).start();
+  }, [checked, pop]);
+
   return (
     <Pressable
       onPress={onToggle}
@@ -40,7 +46,11 @@ export function ChecklistCard({
       ]}
     >
       <View style={[styles.radio, checked && { backgroundColor: radioColor, borderColor: radioColor }]}>
-        {checked ? <Feather name="check" size={12} color={colors.white} /> : null}
+        <Animated.View
+          style={{ opacity: pop, transform: [{ scale: pop.interpolate({ inputRange: [0, 1], outputRange: [0.4, 1] }) }] }}
+        >
+          <Feather name="check" size={12} color={colors.white} />
+        </Animated.View>
       </View>
 
       <View style={styles.content}>

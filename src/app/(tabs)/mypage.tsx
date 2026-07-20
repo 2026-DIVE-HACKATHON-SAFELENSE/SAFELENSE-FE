@@ -6,9 +6,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAuth } from '@/auth';
 import { AppText } from '@/components/AppText';
-import { colors, radius } from '@/theme';
+import { colors, gradient, radius } from '@/theme';
 
-const CARD_GRADIENT = ['#4361EE', '#432DD7'] as const;
+const CARD_GRADIENT = gradient.brand;
 
 /** Stat pill shown inside the purple card (logged-in). */
 function StatPill({ num, label }: { num: string; label: string }) {
@@ -103,10 +103,15 @@ export default function MyPage() {
             </AppText>
           </>
         ) : (
-          <View style={styles.statRow}>
-            <StatCard num="0" label="분석 완료" color={colors.brand} />
-            <StatCard num="0" label="저장된 리포트" color="#00BC7D" />
-          </View>
+          <>
+            <View style={styles.statRow}>
+              <StatCard num="0" label="분석 완료" color={colors.brand} />
+              <StatCard num="0" label="저장된 리포트" color={colors.mint} />
+            </View>
+            <AppText color={colors.textSecondary} style={styles.version}>
+              세이프렌즈 v1.0.0
+            </AppText>
+          </>
         )}
       </View>
     </View>

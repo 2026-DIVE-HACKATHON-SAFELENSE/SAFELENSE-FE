@@ -5,7 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '@/auth';
 import { AppText } from '@/components/AppText';
 import { KakaoLogo } from '@/components/KakaoLogo';
-import { colors } from '@/theme';
+import { colors, radius } from '@/theme';
 
 const stub = (feature: string) =>
   Alert.alert(feature, '준비 중입니다. 이후 작업에서 추가됩니다.');
@@ -99,7 +99,7 @@ const styles = StyleSheet.create({
   kakaoBtn: {
     width: '100%',
     height: 48,
-    borderRadius: 12,
+    borderRadius: radius.field,
     backgroundColor: colors.kakao,
     flexDirection: 'row',
     alignItems: 'center',

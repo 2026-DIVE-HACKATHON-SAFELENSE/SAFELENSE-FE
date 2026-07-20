@@ -3,9 +3,9 @@ import { type ReactNode } from 'react';
 import { Pressable, StyleSheet } from 'react-native';
 
 import { AppText } from '@/components/AppText';
-import { colors, radius } from '@/theme';
+import { colors, gradient, radius } from '@/theme';
 
-const DEFAULT_GRADIENT = ['#4361EE', '#4F39F6'] as const;
+const DEFAULT_GRADIENT = gradient.button;
 
 type Props = {
   label: string;

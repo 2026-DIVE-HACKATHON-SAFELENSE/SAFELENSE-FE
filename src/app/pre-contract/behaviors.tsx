@@ -1,7 +1,7 @@
 import { Feather } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { useState } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { Animated, Easing, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppText } from '@/components/AppText';
@@ -31,6 +31,35 @@ const ITEMS: { title: string; desc: string; sev: Severity }[] = [
   { title: '공인중개사 없이 직거래 강요', desc: '"중개비 아끼자" 구실의 무자격 거래', sev: 'observe' },
 ];
 
+/** Warning banner that fades + slides in when the first suspicious behavior is checked. */
+function DangerBanner({ count }: { count: number }) {
+  const a = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.timing(a, { toValue: 1, duration: 260, easing: Easing.out(Easing.quad), useNativeDriver: true }).start();
+  }, [a]);
+
+  return (
+    <Animated.View
+      style={[
+        styles.banner,
+        { opacity: a, transform: [{ translateY: a.interpolate({ inputRange: [0, 1], outputRange: [-8, 0] }) }] },
+      ]}
+    >
+      <View style={styles.bannerIcon}>
+        <Feather name="alert-triangle" size={16} color={colors.white} />
+      </View>
+      <View style={styles.flex}>
+        <AppText weight="bold" color={colors.dangerTitle} style={styles.bannerTitle}>
+          {count}개 의심 행태 감지
+        </AppText>
+        <AppText color={colors.dangerText} style={styles.bannerSub}>
+          계약을 신중하게 재점검하세요
+        </AppText>
+      </View>
+    </Animated.View>
+  );
+}
+
 export default function BehaviorChecklist() {
   const insets = useSafeAreaInsets();
   const [checked, setChecked] = useState<boolean[]>(() => ITEMS.map(() => false));
@@ -54,21 +83,7 @@ export default function BehaviorChecklist() {
         </AppText>
 
         <View style={styles.list}>
-          {count > 0 ? (
-            <View style={styles.banner}>
-              <View style={styles.bannerIcon}>
-                <Feather name="alert-triangle" size={16} color={colors.white} />
-              </View>
-              <View style={styles.flex}>
-                <AppText weight="bold" color={colors.dangerTitle} style={styles.bannerTitle}>
-                  {count}개 의심 행태 감지
-                </AppText>
-                <AppText color={colors.dangerText} style={styles.bannerSub}>
-                  계약을 신중하게 재검토하세요
-                </AppText>
-              </View>
-            </View>
-          ) : null}
+          {count > 0 ? <DangerBanner count={count} /> : null}
 
           {ITEMS.map((item, i) => {
             const sev = SEVERITY[item.sev];

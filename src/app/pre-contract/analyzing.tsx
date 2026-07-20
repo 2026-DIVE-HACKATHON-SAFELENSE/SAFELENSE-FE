@@ -5,14 +5,14 @@ import { type ComponentProps, useEffect, useRef, useState } from 'react';
 import { Animated, Easing, StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/AppText';
-import { colors, radius } from '@/theme';
+import { colors, gradient, radius } from '@/theme';
 
 type FeatherName = ComponentProps<typeof Feather>['name'];
 
 const STAGES: { title: string; subtitle: string; icon: FeatherName; color: string }[] = [
   { title: '공공 데이터 수집 중', subtitle: '국토교통부 · 법원 등기소', icon: 'search', color: '#2B7FFF' },
   { title: '민간 데이터 분석 중', subtitle: '실거래가 · 피해 신고 이력', icon: 'bar-chart-2', color: '#FF6900' },
-  { title: 'AI 유사 사례 분석', subtitle: '전세 사기 패턴 매칭', icon: 'settings', color: '#AD46FF' },
+  { title: 'AI 유사 사례 분석', subtitle: '전세 사기 패턴 매칭', icon: 'cpu', color: '#AD46FF' },
   { title: '리포트 생성 중', subtitle: '위험 지수 산출', icon: 'file-text', color: '#00C950' },
 ];
 
@@ -92,7 +92,7 @@ function PulsingEmblem() {
       <Animated.View
         style={{ transform: [{ scale: breathe.interpolate({ inputRange: [0, 1], outputRange: [1, 1.06] }) }] }}
       >
-        <LinearGradient colors={['#4361EE', '#432DD7']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.emblem}>
+        <LinearGradient colors={gradient.brand} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.emblem}>
           <Feather name="shield" size={24} color={colors.white} />
         </LinearGradient>
       </Animated.View>
@@ -115,7 +115,7 @@ function StepRow({ stage, index, active }: { stage: (typeof STAGES)[number]; ind
       <View
         style={[
           styles.iconCircle,
-          { backgroundColor: state === 'done' ? '#00C950' : state === 'active' ? stage.color : colors.chevronBg },
+          { backgroundColor: state === 'done' ? colors.doneGreen : state === 'active' ? stage.color : colors.chevronBg },
         ]}
       >
         {state === 'done' ? (
@@ -134,7 +134,7 @@ function StepRow({ stage, index, active }: { stage: (typeof STAGES)[number]; ind
       </AppText>
 
       {state === 'done' ? (
-        <AppText weight="semibold" color="#00A63E" style={styles.done}>
+        <AppText weight="semibold" color={colors.doneText} style={styles.done}>
           완료
         </AppText>
       ) : state === 'active' ? (

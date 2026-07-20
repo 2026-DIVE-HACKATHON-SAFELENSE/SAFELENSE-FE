@@ -1,20 +1,22 @@
 import { Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import { type ComponentProps, useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { type ComponentProps, useEffect, useRef, useState } from 'react';
+import { Alert, Animated, Easing, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppText } from '@/components/AppText';
 import { WideButton } from '@/components/WideButton';
-import { colors, radius } from '@/theme';
+import { colors, gradient, radius } from '@/theme';
+
+const RISK_SCORE = 37;
 
 type FeatherName = ComponentProps<typeof Feather>['name'];
 type Status = 'safe' | 'warn' | 'danger';
 type Row = { status: Status; label: string; sub: string; value: string };
 
 const STATUS: Record<Status, { bg: string; icon: FeatherName; iconColor: string; value: string }> = {
-  safe: { bg: '#ECFDF5', icon: 'check-circle', iconColor: colors.success, value: '#007A55' },
+  safe: { bg: '#ECFDF5', icon: 'check-circle', iconColor: colors.success, value: colors.greenDeep },
   warn: { bg: '#FFFBEB', icon: 'alert-triangle', iconColor: '#F59E0B', value: '#BB4D00' },
   danger: { bg: '#FEF2F2', icon: 'alert-circle', iconColor: colors.danger, value: '#C10007' },
 };
@@ -93,6 +95,22 @@ export default function Report() {
   const insets = useSafeAreaInsets();
   const [tab, setTab] = useState(0);
 
+  // Reveal the headline outcome (the payoff of the animated analyzing screen):
+  // count the score up and sweep the gauge from 0 on mount.
+  const scoreAnim = useRef(new Animated.Value(0)).current;
+  const [score, setScore] = useState(0);
+  useEffect(() => {
+    const id = scoreAnim.addListener(({ value }) => setScore(Math.round(value * RISK_SCORE)));
+    Animated.timing(scoreAnim, {
+      toValue: 1,
+      duration: 900,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: false,
+    }).start();
+    return () => scoreAnim.removeListener(id);
+  }, [scoreAnim]);
+  const gaugeWidth = scoreAnim.interpolate({ inputRange: [0, 1], outputRange: ['0%', `${RISK_SCORE}%`] });
+
   return (
     <View style={[styles.screen, { paddingTop: insets.top }]}>
       <View style={styles.topBar}>
@@ -125,8 +143,8 @@ export default function Report() {
                 종합 위험 지수
               </AppText>
               <View style={styles.scoreRow}>
-                <AppText weight="bold" color="#10B981" style={styles.scoreNum}>
-                  37
+                <AppText weight="bold" color={colors.riskLow} style={styles.scoreNum}>
+                  {score}
                 </AppText>
                 <AppText weight="semibold" color={colors.textSecondary} style={styles.scoreMax}>
                   /100
@@ -134,21 +152,21 @@ export default function Report() {
               </View>
               <View style={styles.riskRow}>
                 <View style={styles.riskDot} />
-                <AppText weight="bold" color="#10B981" style={styles.riskLabel}>
+                <AppText weight="bold" color={colors.riskLow} style={styles.riskLabel}>
                   저위험
                 </AppText>
               </View>
             </View>
             <View style={styles.warnTile}>
-              <Feather name="alert-triangle" size={28} color="#10B981" />
+              <Feather name="alert-triangle" size={28} color={colors.riskLow} />
             </View>
           </View>
 
           <View style={styles.gaugeTrack}>
-            <View style={styles.gaugeFill} />
+            <Animated.View style={[styles.gaugeFill, { width: gaugeWidth }]} />
           </View>
           <View style={styles.axis}>
-            <AppText weight="semibold" color="#009966" style={styles.axisLabel}>
+            <AppText weight="semibold" color={colors.riskLow} style={styles.axisLabel}>
               저위험
             </AppText>
             <AppText weight="semibold" color="#FE9A00" style={styles.axisLabel}>
@@ -184,7 +202,7 @@ export default function Report() {
             <Pressable
               key={t}
               onPress={() => setTab(i)}
-              style={[styles.segItem, i === tab && styles.segActive]}
+              style={({ pressed }) => [styles.segItem, i === tab && styles.segActive, pressed && styles.segPressed]}
             >
               <AppText color={i === tab ? colors.white : '#000000'} style={styles.segText} numberOfLines={1}>
                 {t}
@@ -197,7 +215,7 @@ export default function Report() {
 
         {/* 전세피해지원센터 */}
         <LinearGradient
-          colors={['#4361EE', '#432DD7']}
+          colors={gradient.brand}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={styles.ctaCard}
@@ -283,7 +301,7 @@ const styles = StyleSheet.create({
   scoreNum: { fontSize: 48, lineHeight: 50 },
   scoreMax: { fontSize: 18, lineHeight: 24, marginBottom: 6, marginLeft: 2 },
   riskRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6 },
-  riskDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#10B981' },
+  riskDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.riskLow },
   riskLabel: { fontSize: 16, lineHeight: 22 },
   warnTile: {
     width: 56,
@@ -300,7 +318,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.6)',
     overflow: 'hidden',
   },
-  gaugeFill: { width: '37%', height: 10, borderRadius: radius.pill, backgroundColor: '#10B981' },
+  gaugeFill: { height: 10, borderRadius: radius.pill, backgroundColor: colors.riskLow },
   axis: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 },
   axisLabel: { fontSize: 10, lineHeight: 15 },
 
@@ -319,13 +337,22 @@ const styles = StyleSheet.create({
   segment: {
     marginTop: 16,
     flexDirection: 'row',
-    borderRadius: 8,
+    gap: 2,
+    padding: 3,
+    borderRadius: radius.chip + 3,
     borderWidth: 1,
     borderColor: '#D9D9D9',
-    overflow: 'hidden',
+    backgroundColor: colors.white,
   },
-  segItem: { flex: 1, paddingVertical: 7, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.white },
+  segItem: {
+    flex: 1,
+    paddingVertical: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: radius.chip,
+  },
   segActive: { backgroundColor: colors.brand },
+  segPressed: { opacity: 0.7 },
   segText: { fontSize: 10, lineHeight: 15 },
 
   tabCard: {

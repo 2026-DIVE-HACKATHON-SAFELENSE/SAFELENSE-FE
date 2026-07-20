@@ -65,7 +65,6 @@ export default function House() {
         <View style={styles.card}>
           <Label text="주소" required />
           <InputPill
-            icon="map-pin"
             value={address}
             onChangeText={setAddress}
             placeholder="서울시 마포구 합정동 123-45"
@@ -97,7 +96,11 @@ export default function House() {
                 <Pressable
                   key={t}
                   onPress={() => setBuildingType(t)}
-                  style={[styles.typeBtn, active ? styles.typeActive : styles.typeInactive]}
+                  style={({ pressed }) => [
+                    styles.typeBtn,
+                    active ? styles.typeActive : styles.typeInactive,
+                    pressed && styles.pressed,
+                  ]}
                 >
                   <AppText
                     weight="semibold"
@@ -121,7 +124,7 @@ export default function House() {
           <AppText weight="medium" color={colors.textSecondary} style={[styles.subLabel, styles.gap]}>
             계약 예정일
           </AppText>
-          <InputPill icon="calendar" value={date} onChangeText={setDate} placeholder="YYYY-MM-DD" />
+          <InputPill value={date} onChangeText={setDate} placeholder="YYYY-MM-DD" />
         </View>
 
         <View style={styles.note}>
@@ -145,6 +148,7 @@ export default function House() {
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
   flex: { flex: 1 },
+  pressed: { opacity: 0.9 },
   body: { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 24 },
   title: { fontSize: 24, lineHeight: 32, color: colors.textPrimary },
   subtitle: { fontSize: 14, lineHeight: 20, marginTop: 4 },

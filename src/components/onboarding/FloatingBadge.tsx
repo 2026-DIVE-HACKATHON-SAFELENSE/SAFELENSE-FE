@@ -1,10 +1,10 @@
-import { type ReactNode } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { useEffect, useRef, type ReactNode } from 'react';
+import { Animated, Easing, StyleSheet } from 'react-native';
 
 import { AppText } from '@/components/AppText';
 import { colors, radius } from '@/theme';
 
-/** Small white "chip" that floats over an illustration (e.g. 위험 감지 / 행동 제안). */
+/** Small white "chip" that gently bobs over an illustration (e.g. 위험 감지 / 행동 제안). */
 export function FloatingBadge({
   icon,
   text,
@@ -14,13 +14,32 @@ export function FloatingBadge({
   text: string;
   textColor: string;
 }) {
+  const y = useRef(new Animated.Value(0)).current;
+  // Desync each badge with its own phase so they don't bob in lockstep.
+  const phase = useRef(Math.random() * 1400).current;
+  useEffect(() => {
+    const anim = Animated.sequence([
+      Animated.delay(phase),
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(y, { toValue: 1, duration: 1700, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
+          Animated.timing(y, { toValue: 0, duration: 1700, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
+        ]),
+      ),
+    ]);
+    anim.start();
+    return () => anim.stop();
+  }, [y, phase]);
+
   return (
-    <View style={styles.badge}>
+    <Animated.View
+      style={[styles.badge, { transform: [{ translateY: y.interpolate({ inputRange: [0, 1], outputRange: [0, -5] }) }] }]}
+    >
       {icon}
       <AppText weight="bold" color={textColor} style={styles.text}>
         {text}
       </AppText>
-    </View>
+    </Animated.View>
   );
 }
 

@@ -1,11 +1,12 @@
-import { Feather, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Svg, { Circle, Ellipse } from 'react-native-svg';
 
 import { AppText } from '@/components/AppText';
-import { colors, radius, stageAccent } from '@/theme';
+import { colors, gradient, radius, stageAccent } from '@/theme';
 
 type Stage = {
   title: string;
@@ -77,12 +78,18 @@ export default function Home() {
     <View style={[styles.screen, { paddingTop: insets.top }]}>
       <View style={styles.header}>
         <View style={styles.brand}>
-          <LinearGradient colors={['#615FFF', '#155DFC']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.brandMark}>
-            <Ionicons name="shield" size={16} color={colors.white} />
+          <LinearGradient colors={gradient.mark} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.brandMark}>
+            {/* SafeLens 마스코트 — 눈 두 개(스플래시 마크와 동일한 정체성). */}
+            <Svg width={20} height={13} viewBox="0 0 46 30">
+              <Ellipse cx="14" cy="15" rx="9.5" ry="9.5" fill={colors.white} />
+              <Ellipse cx="32" cy="15" rx="9.5" ry="9.5" fill={colors.white} />
+              <Circle cx="15.5" cy="15" r="5.5" fill={colors.textPrimary} />
+              <Circle cx="30.5" cy="15" r="5.5" fill={colors.textPrimary} />
+            </Svg>
           </LinearGradient>
           <View>
             <AppText weight="semibold" color={colors.textSecondary} style={styles.brandKicker}>
-              전세 사기 예방
+              안전한 계약을 함께 보는 친구
             </AppText>
             <AppText weight="bold" style={styles.brandName}>
               세이프렌즈
@@ -142,7 +149,7 @@ export default function Home() {
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
   flex: { flex: 1 },
-  pressed: { opacity: 0.85 },
+  pressed: { opacity: 0.9, transform: [{ scale: 0.985 }] },
 
   header: {
     flexDirection: 'row',
@@ -181,8 +188,8 @@ const styles = StyleSheet.create({
   bannerIcon: {
     width: 40,
     height: 40,
-    borderRadius: 20,
-    backgroundColor: colors.hairline,
+    borderRadius: 12,
+    backgroundColor: '#D8D7FF',
     alignItems: 'center',
     justifyContent: 'center',
   },

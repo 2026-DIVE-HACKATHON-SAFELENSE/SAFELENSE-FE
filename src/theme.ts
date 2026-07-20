@@ -55,6 +55,15 @@ export const colors = {
   greenText: '#059669',
   greenBg: '#F0FDF4',
   greenBorder: '#B9F8CF',
+  /** Report 저위험 강조(게이지·점수·라벨) — 한 의미엔 한 그린. */
+  riskLow: '#10B981',
+  /** Mint 체크 accent (서류 라디오 · 마이페이지 저장 카드). */
+  mint: '#00BC7D',
+  /** 완료(분석 중) 아이콘 배경 / 라벨. */
+  doneGreen: '#00C950',
+  doneText: '#00A63E',
+  /** 짙은 그린(체크 완료 타이틀 · 리포트 안전 값). */
+  greenDeep: '#007A55',
 
   /** Kakao brand. */
   kakao: '#FEE500',
@@ -85,8 +94,27 @@ export type FontWeightKey = keyof typeof font;
 export const radius = {
   card: 24,
   button: 16,
+  /** Inputs / secondary buttons (e.g. 카카오 버튼). */
+  field: 12,
+  /** Small chips / segmented-control cells. */
+  chip: 8,
   /** Fully rounded pill. */
   pill: 999,
+} as const;
+
+/**
+ * Brand gradients. Centralized so every screen references one source instead of
+ * re-hardcoding stops (previously each screen picked its own second stop).
+ */
+export const gradient = {
+  /** Deep indigo — cards, emblem, CTA. */
+  brand: ['#4361EE', '#432DD7'],
+  /** Full-width CTA button default. */
+  button: ['#4361EE', '#4F39F6'],
+  /** Brand logo mark. */
+  mark: ['#615FFF', '#155DFC'],
+  /** Progress fills. */
+  progress: ['#4361EE', '#615FFF'],
 } as const;
 
 export const spacing = {

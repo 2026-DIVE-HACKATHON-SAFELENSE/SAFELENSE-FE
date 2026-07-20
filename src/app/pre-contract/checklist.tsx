@@ -1,8 +1,8 @@
 import { Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import { useState } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { Animated, Easing, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppText } from '@/components/AppText';
@@ -10,7 +10,7 @@ import { Badge } from '@/components/Badge';
 import { ChecklistCard } from '@/components/ChecklistCard';
 import { WideButton } from '@/components/WideButton';
 import { WizardHeader } from '@/components/WizardHeader';
-import { colors, radius } from '@/theme';
+import { colors, gradient, radius } from '@/theme';
 
 const ITEMS: { title: string; desc: string; required: boolean }[] = [
   { title: '등기부등본 확인', desc: '발급일 1개월 이내 · 근저당·압류 여부', required: true },
@@ -28,6 +28,18 @@ export default function DocumentChecklist() {
   const toggle = (i: number) => setChecked((prev) => prev.map((v, idx) => (idx === i ? !v : v)));
   const count = checked.filter(Boolean).length;
   const pct = Math.round((count / ITEMS.length) * 100);
+
+  // Sweep the progress fill to its new width instead of snapping between steps.
+  const fillAnim = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.timing(fillAnim, {
+      toValue: pct,
+      duration: 420,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: false,
+    }).start();
+  }, [pct, fillAnim]);
+  const fillWidth = fillAnim.interpolate({ inputRange: [0, 100], outputRange: ['0%', '100%'] });
 
   return (
     <View style={[styles.screen, { paddingTop: insets.top }]}>
@@ -54,12 +66,14 @@ export default function DocumentChecklist() {
             </AppText>
           </View>
           <View style={styles.track}>
-            <LinearGradient
-              colors={['#4361EE', '#615FFF']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={[styles.fill, { width: `${pct}%` }]}
-            />
+            <Animated.View style={[styles.fillWrap, { width: fillWidth }]}>
+              <LinearGradient
+                colors={gradient.progress}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.fillGrad}
+              />
+            </Animated.View>
           </View>
         </View>
 
@@ -78,8 +92,8 @@ export default function DocumentChecklist() {
               onToggle={() => toggle(i)}
               checkedBg="#F3FEF8"
               checkedBorder="rgba(152, 230, 213, 0.72)"
-              radioColor="#00BC7D"
-              checkedTitleColor="#007A55"
+              radioColor={colors.mint}
+              checkedTitleColor={colors.greenDeep}
             />
           ))}
         </View>
@@ -124,7 +138,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.bg,
     overflow: 'hidden',
   },
-  fill: { height: 8, borderRadius: radius.pill },
+  fillWrap: { height: 8, borderRadius: radius.pill, overflow: 'hidden' },
+  fillGrad: { flex: 1 },
   list: { marginTop: 16, gap: 8 },
   footer: { paddingHorizontal: 20, paddingTop: 12 },
 });
