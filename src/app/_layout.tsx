@@ -1,3 +1,4 @@
+import { Feather, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
@@ -22,6 +23,12 @@ export default function RootLayout() {
     'Pretendard-Medium': require('../../assets/fonts/Pretendard-Medium.otf'),
     'Pretendard-SemiBold': require('../../assets/fonts/Pretendard-SemiBold.otf'),
     'Pretendard-Bold': require('../../assets/fonts/Pretendard-Bold.otf'),
+    // @expo/vector-icons glyph fonts don't reliably auto-load on web — icons render
+    // as tofu (□) boxes. Preload the sets the app uses so they're ready before first
+    // paint (native auto-loads these; the explicit load is what fixes web).
+    ...Feather.font,
+    ...Ionicons.font,
+    ...MaterialCommunityIcons.font,
   });
 
   useEffect(() => {
