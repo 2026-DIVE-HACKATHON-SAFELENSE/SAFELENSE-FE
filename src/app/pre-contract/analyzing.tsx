@@ -1,8 +1,8 @@
 import { Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import { type ComponentProps, useEffect, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { type ComponentProps, useEffect, useRef, useState } from 'react';
+import { Animated, Easing, StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/AppText';
 import { colors, radius } from '@/theme';
@@ -18,12 +18,84 @@ const STAGES: { title: string; subtitle: string; icon: FeatherName; color: strin
 
 const STAGE_MS = 1100;
 
+/** Three loading dots that pulse in a staggered wave. */
 function ThreeDots() {
+  const d0 = useRef(new Animated.Value(0.25)).current;
+  const d1 = useRef(new Animated.Value(0.25)).current;
+  const d2 = useRef(new Animated.Value(0.25)).current;
+
+  useEffect(() => {
+    const anims = [d0, d1, d2].map((d, i) =>
+      Animated.sequence([
+        Animated.delay(i * 160),
+        Animated.loop(
+          Animated.sequence([
+            Animated.timing(d, { toValue: 1, duration: 340, easing: Easing.out(Easing.quad), useNativeDriver: true }),
+            Animated.timing(d, { toValue: 0.25, duration: 340, easing: Easing.in(Easing.quad), useNativeDriver: true }),
+          ]),
+        ),
+      ]),
+    );
+    anims.forEach((a) => a.start());
+    return () => anims.forEach((a) => a.stop());
+  }, [d0, d1, d2]);
+
   return (
     <View style={styles.dots}>
-      {[0.29, 0.66, 0.78].map((o) => (
-        <View key={o} style={[styles.dot, { opacity: o }]} />
+      {[d0, d1, d2].map((d, i) => (
+        <Animated.View key={i} style={[styles.dot, { opacity: d, transform: [{ scale: d }] }]} />
       ))}
+    </View>
+  );
+}
+
+/** Central shield emblem with radar "ping" rings and a gentle breathing pulse. */
+function PulsingEmblem() {
+  const ping1 = useRef(new Animated.Value(0)).current;
+  const ping2 = useRef(new Animated.Value(0)).current;
+  const breathe = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const ping = (v: Animated.Value) =>
+      Animated.loop(
+        Animated.timing(v, { toValue: 1, duration: 2000, easing: Easing.out(Easing.quad), useNativeDriver: true }),
+      );
+    const a1 = ping(ping1);
+    const a2 = Animated.sequence([Animated.delay(1000), ping(ping2)]);
+    const a3 = Animated.loop(
+      Animated.sequence([
+        Animated.timing(breathe, { toValue: 1, duration: 1100, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
+        Animated.timing(breathe, { toValue: 0, duration: 1100, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
+      ]),
+    );
+    a1.start();
+    a2.start();
+    a3.start();
+    return () => {
+      a1.stop();
+      a2.stop();
+      a3.stop();
+    };
+  }, [ping1, ping2, breathe]);
+
+  const ringStyle = (v: Animated.Value) => ({
+    opacity: v.interpolate({ inputRange: [0, 1], outputRange: [0.45, 0] }),
+    transform: [{ scale: v.interpolate({ inputRange: [0, 1], outputRange: [0.7, 1.9] }) }],
+  });
+
+  return (
+    <View style={styles.emblemWrap}>
+      <Animated.View style={[styles.ping, ringStyle(ping1)]} />
+      <Animated.View style={[styles.ping, ringStyle(ping2)]} />
+      <View style={styles.ringOuter} />
+      <View style={styles.ringInner} />
+      <Animated.View
+        style={{ transform: [{ scale: breathe.interpolate({ inputRange: [0, 1], outputRange: [1, 1.06] }) }] }}
+      >
+        <LinearGradient colors={['#4361EE', '#432DD7']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.emblem}>
+          <Feather name="shield" size={24} color={colors.white} />
+        </LinearGradient>
+      </Animated.View>
     </View>
   );
 }
@@ -95,13 +167,7 @@ export default function Analyzing() {
 
   return (
     <View style={styles.screen}>
-      <View style={styles.emblemWrap}>
-        <View style={styles.ringOuter} />
-        <View style={styles.ringInner} />
-        <LinearGradient colors={['#4361EE', '#432DD7']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.emblem}>
-          <Feather name="shield" size={24} color={colors.white} />
-        </LinearGradient>
-      </View>
+      <PulsingEmblem />
 
       <AppText weight="bold" style={styles.title}>
         {current.title}
@@ -122,6 +188,14 @@ export default function Analyzing() {
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg, alignItems: 'center', justifyContent: 'center', padding: 20 },
   emblemWrap: { width: 96, height: 96, alignItems: 'center', justifyContent: 'center' },
+  ping: {
+    position: 'absolute',
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    borderWidth: 2,
+    borderColor: 'rgba(67, 97, 238, 0.45)',
+  },
   ringOuter: {
     position: 'absolute',
     width: 96,

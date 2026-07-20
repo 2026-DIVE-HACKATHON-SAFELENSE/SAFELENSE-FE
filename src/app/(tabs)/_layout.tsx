@@ -1,7 +1,7 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
 import { type ReactNode } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Platform, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { colors, font } from '@/theme';
@@ -15,6 +15,9 @@ function TabIcon({ focused, children }: { focused: boolean; children: ReactNode 
 
 export default function TabsLayout() {
   const insets = useSafeAreaInsets();
+  // Web reports no bottom safe-area inset, so the tab bar sits flush against the
+  // viewport edge and the labels get clipped. Give it a small cushion there.
+  const bottomInset = insets.bottom || (Platform.OS === 'web' ? 12 : 0);
 
   return (
     <Tabs
@@ -27,9 +30,9 @@ export default function TabsLayout() {
           backgroundColor: colors.white,
           borderTopWidth: 1,
           borderTopColor: colors.hairline,
-          height: 60 + insets.bottom,
+          height: 60 + bottomInset,
           paddingTop: 8,
-          paddingBottom: insets.bottom + 6,
+          paddingBottom: bottomInset + 6,
         },
       }}
     >

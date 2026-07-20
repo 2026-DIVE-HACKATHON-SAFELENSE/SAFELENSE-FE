@@ -7,6 +7,9 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { AuthProvider } from '@/auth';
+// Web-only side effect: constrain the SPA to a centered mobile-width column on
+// desktop (no phone-frame chrome). No-op on native.
+import '@/mobileWeb';
 import { colors } from '@/theme';
 
 // Keep the native splash up until Pretendard is ready, so text never flashes

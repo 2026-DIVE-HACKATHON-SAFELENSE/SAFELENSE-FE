@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
-import { useRef } from 'react';
-import { ScrollView, useWindowDimensions, View } from 'react-native';
+import { useRef, useState } from 'react';
+import { type LayoutChangeEvent, ScrollView, View } from 'react-native';
 
 import { OnboardingSlide, type SlideContent } from '@/components/onboarding/OnboardingSlide';
 import { Slide1Illustration } from '@/components/onboarding/Slide1Illustration';
@@ -39,31 +39,47 @@ const SLIDES: SlideContent[] = [
 ];
 
 export default function Onboarding() {
-  const { width, height } = useWindowDimensions();
+  // Measure the carousel's own container rather than the browser window. On
+  // native the two are identical, but on web the app is rendered inside a
+  // centered mobile-width column (see `src/mobileWeb.web.ts`), so
+  // `useWindowDimensions` would report the desktop window and break paging.
+  const [size, setSize] = useState<{ width: number; height: number } | null>(null);
   const scrollRef = useRef<ScrollView>(null);
 
+  const onLayout = (e: LayoutChangeEvent) => {
+    const { width, height } = e.nativeEvent.layout;
+    setSize((prev) =>
+      prev && prev.width === width && prev.height === height ? prev : { width, height },
+    );
+  };
+
   const goToLogin = () => router.replace('/login');
-  const goToSlide = (i: number) => scrollRef.current?.scrollTo({ x: i * width, animated: true });
+  const goToSlide = (i: number) =>
+    size && scrollRef.current?.scrollTo({ x: i * size.width, animated: true });
 
   return (
-    <ScrollView
-      ref={scrollRef}
-      horizontal
-      pagingEnabled
-      showsHorizontalScrollIndicator={false}
-      style={{ flex: 1, backgroundColor: colors.bg }}
-    >
-      {SLIDES.map((slide, i) => (
-        <View key={slide.label} style={{ width, height }}>
-          <OnboardingSlide
-            {...slide}
-            index={i}
-            total={SLIDES.length}
-            onSkip={goToLogin}
-            onNext={() => (i === SLIDES.length - 1 ? goToLogin() : goToSlide(i + 1))}
-          />
-        </View>
-      ))}
-    </ScrollView>
+    <View style={{ flex: 1, backgroundColor: colors.bg }} onLayout={onLayout}>
+      {size && (
+        <ScrollView
+          ref={scrollRef}
+          horizontal
+          pagingEnabled
+          showsHorizontalScrollIndicator={false}
+          style={{ flex: 1 }}
+        >
+          {SLIDES.map((slide, i) => (
+            <View key={slide.label} style={{ width: size.width, height: size.height }}>
+              <OnboardingSlide
+                {...slide}
+                index={i}
+                total={SLIDES.length}
+                onSkip={goToLogin}
+                onNext={() => (i === SLIDES.length - 1 ? goToLogin() : goToSlide(i + 1))}
+              />
+            </View>
+          ))}
+        </ScrollView>
+      )}
+    </View>
   );
 }
