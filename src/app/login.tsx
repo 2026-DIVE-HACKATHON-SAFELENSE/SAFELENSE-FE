@@ -5,7 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '@/auth';
 import { AppText } from '@/components/AppText';
 import { KakaoLogo } from '@/components/KakaoLogo';
-import { colors, radius } from '@/theme';
+import { colors } from '@/theme';
 
 const stub = (feature: string) =>
   Alert.alert(feature, '준비 중입니다. 이후 작업에서 추가됩니다.');
@@ -26,7 +26,13 @@ export default function Login() {
   };
 
   return (
-    <View style={[styles.screen, { paddingTop: insets.top }]}>
+    <View style={[styles.screen, { paddingTop: insets.top, paddingBottom: insets.bottom + 32 }]}>
+      {/* Vertical rhythm from Figma "로그인" (38:3270). The three flexible gaps —
+          top→title, title→Kakao button, button→footer — are in ratio 200:125:277,
+          which lands the Kakao button on the screen's vertical center regardless of
+          height (native + web, where there's no top safe-area inset to lean on). */}
+      <View style={styles.gapTop} />
+
       <View style={styles.header}>
         <AppText weight="bold" style={styles.title}>
           로그인
@@ -35,6 +41,8 @@ export default function Login() {
           전세 사기로부터 내 보증금을 지킵니다
         </AppText>
       </View>
+
+      <View style={styles.gapMid} />
 
       <View style={styles.loginBlock}>
         <Pressable
@@ -52,9 +60,9 @@ export default function Login() {
         </AppText>
       </View>
 
-      <View style={styles.spacer} />
+      <View style={styles.gapBottom} />
 
-      <View style={[styles.footer, { paddingBottom: insets.bottom + 24 }]}>
+      <View style={styles.footer}>
         <View style={styles.footerLinks}>
           <Pressable onPress={() => stub('회원가입')} hitSlop={8}>
             <AppText weight="semibold" color={colors.textSecondary} style={styles.footerLink}>
@@ -80,10 +88,14 @@ export default function Login() {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg, paddingHorizontal: 24 },
-  header: { alignItems: 'center', paddingTop: 120 },
+  // Figma vertical gaps (38:3270): top:title:footer ≈ 200 : 125 : 277.
+  gapTop: { flex: 200 },
+  gapMid: { flex: 125 },
+  gapBottom: { flex: 277 },
+  header: { alignItems: 'center' },
   title: { fontSize: 24, lineHeight: 32, color: colors.textPrimary },
   subtitle: { fontSize: 16, lineHeight: 20, marginTop: 4 },
-  loginBlock: { marginTop: 80, alignItems: 'center', gap: 16 },
+  loginBlock: { alignItems: 'center', gap: 16 },
   kakaoBtn: {
     width: '100%',
     height: 48,
@@ -97,7 +109,6 @@ const styles = StyleSheet.create({
   kakaoText: { flex: 1, fontSize: 16, textAlign: 'center' },
   kakaoSpacer: { width: 24 },
   helper: { fontSize: 14 },
-  spacer: { flex: 1 },
   footer: { alignItems: 'center', gap: 16 },
   footerLinks: { flexDirection: 'row', alignItems: 'center', gap: 16 },
   footerLink: { fontSize: 14, lineHeight: 16 },
