@@ -70,11 +70,19 @@ index (animated splash, auto router.replace → /onboarding after ~1.9s)
   → onboarding (3-slide horizontal paging carousel)
     → login
       → (tabs)        홈 home · 내 집 house · 마이페이지 mypage   [bottom tabs]
-          └─ pre-contract wizard (stack screens, entered from the home 계약 전 card):
+          └─ 계약 전/중/후 wizards (stack screens, one per home stage card):
                checklist → behaviors → analyzing → report
 ```
-`pre-contract/analyzing.tsx` auto-advances through 4 fake stages on timers, then
-`router.replace('/pre-contract/report')`. 계약 중 / 계약 후 flows are **not built yet**.
+The three contract-stage wizards share **one implementation, three data sets**.
+Each step is a stage-parameterized component in `src/components/flow/`
+(`DocumentChecklistScreen` 서류 · `BehaviorChecklistScreen` 행태 · `AnalyzingScreen`
+· `ReportScreen`); the 12 route files under `src/app/{pre,during,after}-contract/`
+are thin wrappers that pass `stage` (`before|during|after`) + the next-step
+`router.push`. Stage data lives in `src/data/`: `behaviorChecklist.ts` (행태
+categories per stage) and `contractFlow.ts` (shared 서류 items + `STAGE_LABEL`).
+`analyzing` auto-advances through 4 fake stages on timers then `onDone()` →
+`.../report`. Analyzing + report have no 중/후-specific Figma, so they reuse the
+계약 전 pattern with the same representative demo data.
 
 ### Auth is a mock, and routes are NOT guarded
 `src/auth.tsx` is a React context with **no backend**: `signIn()` sets a hardcoded
@@ -146,7 +154,9 @@ dashboard alternatives are in `DEPLOY.md`.
 ## Current stubs / demo data (know what is real)
 
 - Kakao login → mock context, no backend.
-- 계약 중 / 계약 후 flows → not implemented.
+- 계약 전/중/후 flows are all built (shared `src/components/flow/` screens), but the
+  checklist/behavior selections and the report contents are **not wired together** —
+  every stage's analyzing/report shows the same representative demo data.
 - 내 집 (house) form values → local component state, not wired into analysis.
-- `report.tsx` risk numbers, similar cases, and checklists → representative demo
-  values, not real public/private data APIs.
+- Report risk numbers, similar cases, and checklists (`src/components/flow/ReportScreen.tsx`)
+  → representative demo values, not real public/private data APIs.

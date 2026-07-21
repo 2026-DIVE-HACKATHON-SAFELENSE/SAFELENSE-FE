@@ -57,10 +57,19 @@ export default function RootLayout() {
           <Stack.Screen name="onboarding" />
           <Stack.Screen name="login" />
           <Stack.Screen name="(tabs)" />
+          <Stack.Screen name="notifications" options={{ animation: 'slide_from_right' }} />
           <Stack.Screen name="pre-contract/checklist" options={{ animation: 'slide_from_right' }} />
           <Stack.Screen name="pre-contract/behaviors" options={{ animation: 'slide_from_right' }} />
-            <Stack.Screen name="pre-contract/analyzing" options={{ gestureEnabled: false }} />
-            <Stack.Screen name="pre-contract/report" options={{ gestureEnabled: false }} />
+          <Stack.Screen name="pre-contract/analyzing" options={{ gestureEnabled: false }} />
+          <Stack.Screen name="pre-contract/report" options={{ gestureEnabled: false }} />
+          <Stack.Screen name="during-contract/checklist" options={{ animation: 'slide_from_right' }} />
+          <Stack.Screen name="during-contract/behaviors" options={{ animation: 'slide_from_right' }} />
+          <Stack.Screen name="during-contract/analyzing" options={{ gestureEnabled: false }} />
+          <Stack.Screen name="during-contract/report" options={{ gestureEnabled: false }} />
+          <Stack.Screen name="after-contract/checklist" options={{ animation: 'slide_from_right' }} />
+          <Stack.Screen name="after-contract/behaviors" options={{ animation: 'slide_from_right' }} />
+          <Stack.Screen name="after-contract/analyzing" options={{ gestureEnabled: false }} />
+          <Stack.Screen name="after-contract/report" options={{ gestureEnabled: false }} />
           </Stack>
         </AuthProvider>
       </SafeAreaProvider>

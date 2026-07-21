@@ -1,12 +1,11 @@
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Svg, { Circle, Ellipse } from 'react-native-svg';
+import Svg, { Ellipse, Path } from 'react-native-svg';
 
 import { AppText } from '@/components/AppText';
-import { colors, gradient, radius, stageAccent } from '@/theme';
+import { colors, radius, stageAccent } from '@/theme';
 
 type Stage = {
   title: string;
@@ -15,8 +14,6 @@ type Stage = {
   accent: { chipText: string; chipBg: string };
   onPress: () => void;
 };
-
-const comingSoon = (t: string) => Alert.alert(t, '준비 중입니다. 이후 마일스톤에서 제공됩니다.');
 
 const STAGES: Stage[] = [
   {
@@ -31,14 +28,14 @@ const STAGES: Stage[] = [
     desc: '계약 진행 중 이상 징후 분석',
     chips: ['계약서 검토', '특약 위험도', '중개인 확인'],
     accent: stageAccent.during,
-    onPress: () => comingSoon('계약 중 분석'),
+    onPress: () => router.push('/during-contract/checklist'),
   },
   {
     title: '계약 후',
     desc: '계약 후 피해 분석 및 대응 안내',
     chips: ['피해 유형', '법적 대응', '유사 판례'],
     accent: stageAccent.after,
-    onPress: () => comingSoon('계약 후 분석'),
+    onPress: () => router.push('/after-contract/checklist'),
   },
 ];
 
@@ -78,15 +75,14 @@ export default function Home() {
     <View style={[styles.screen, { paddingTop: insets.top }]}>
       <View style={styles.header}>
         <View style={styles.brand}>
-          <LinearGradient colors={gradient.mark} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.brandMark}>
-            {/* SafeLens 마스코트 — 눈 두 개(스플래시 마크와 동일한 정체성). */}
-            <Svg width={20} height={13} viewBox="0 0 46 30">
-              <Ellipse cx="14" cy="15" rx="9.5" ry="9.5" fill={colors.white} />
-              <Ellipse cx="32" cy="15" rx="9.5" ry="9.5" fill={colors.white} />
-              <Circle cx="15.5" cy="15" r="5.5" fill={colors.textPrimary} />
-              <Circle cx="30.5" cy="15" r="5.5" fill={colors.textPrimary} />
-            </Svg>
-          </LinearGradient>
+          {/* SafeLens 마스코트 — 눈 두 개가 있는 집(스플래시 마크와 동일, Figma 10:2310). */}
+          <Svg width={34} height={30} viewBox="0 0 83 73">
+            <Path d="M0 24 L38.9 1.5 Q41.5 0 44.1 1.5 L83 24 L83 73 L0 73 Z" fill={colors.brand} />
+            <Ellipse cx={30.5} cy={46.5} rx={10.5} ry={10.5} fill={colors.white} />
+            <Ellipse cx={52.5} cy={46.5} rx={10.5} ry={10.5} fill={colors.white} />
+            <Ellipse cx={32} cy={46.5} rx={6.5} ry={6.5} fill={colors.textPrimary} />
+            <Ellipse cx={50.5} cy={46.5} rx={6.5} ry={6.5} fill={colors.textPrimary} />
+          </Svg>
           <View>
             <AppText weight="semibold" color={colors.textSecondary} style={styles.brandKicker}>
               안전한 계약을 함께 보는 친구
@@ -96,7 +92,7 @@ export default function Home() {
             </AppText>
           </View>
         </View>
-        <Pressable onPress={() => comingSoon('알림')} style={({ pressed }) => [styles.bell, pressed && styles.pressed]}>
+        <Pressable onPress={() => router.push('/notifications')} style={({ pressed }) => [styles.bell, pressed && styles.pressed]}>
           <Feather name="bell" size={16} color={colors.textPrimary} />
         </Pressable>
       </View>
@@ -159,7 +155,6 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   brand: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  brandMark: { width: 32, height: 32, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
   brandKicker: { fontSize: 10, lineHeight: 14 },
   brandName: { fontSize: 14, lineHeight: 20, color: colors.textPrimary },
   bell: {
