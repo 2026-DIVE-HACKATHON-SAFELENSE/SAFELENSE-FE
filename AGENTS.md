@@ -28,7 +28,7 @@ npx expo start            # dev server (Expo Go / dev client); add --ios --andro
 npm run web               # = expo start --web
 npm run lint              # = expo lint (eslint-config-expo; config is generated on first run)
 npx tsc --noEmit          # typecheck (TypeScript strict mode)
-npm run build:web         # = expo export --platform web  →  ./dist  (SPA)
+npm run build:web         # = expo export --platform web + 에셋 경로 후처리 → ./dist (SPA)
 npm run deploy:cf         # = wrangler pages deploy dist --project-name=safelense-fe
 ```
 
@@ -138,6 +138,16 @@ native no-op).
    (e.g. the onboarding paging carousel) must measure its own container with
    `onLayout` — this is why `onboarding.tsx` measures its container. Getting this
    wrong breaks paging inside the web column.
+4. **Nothing may ship under a `node_modules/` path — `wrangler` silently drops it.**
+   `expo export` writes dependency assets to their source path, so the
+   @expo/vector-icons glyph TTFs and expo-router PNGs land in
+   `dist/assets/node_modules/…`. `wrangler pages deploy` skips every `node_modules`
+   path when uploading (no opt-out), so on Cloudflare those URLs hit the
+   `_redirects` SPA fallback and return `index.html` — icons render as tofu (□)
+   while `dist/` looks perfect locally. `scripts/fix-web-asset-paths.js` (chained
+   into `npm run build:web`) moves them to `dist/assets/vendor/` and rewrites the
+   bundle's references; it exits non-zero if any reference survives. **Always build
+   via `npm run build:web`, never bare `expo export`.**
 
 ---
 

@@ -5,8 +5,15 @@ Expo Router 웹 **SPA 빌드**(`web.output: "single"`)를 정적 빌드해 Cloud
 
 ```bash
 npm install
-npm run build:web        # = expo export --platform web  →  ./dist
+npm run build:web        # = expo export --platform web + 에셋 경로 후처리  →  ./dist
 ```
+
+> **`expo export`를 직접 호출하지 말 것.** `expo export`는 의존성이 제공하는 에셋(아이콘 글리프
+> TTF, expo-router PNG)을 `dist/assets/node_modules/…`에 내보내는데, `wrangler pages deploy`는
+> 업로드 시 `node_modules` 경로를 무조건 건너뜁니다(옵션 없음). 그러면 해당 URL이 SPA 폴백에 걸려
+> `index.html`을 반환하고 아이콘이 전부 tofu(□)로 깨집니다. `npm run build:web`에 연결된
+> `scripts/fix-web-asset-paths.js`가 이 디렉터리를 `dist/assets/vendor/`로 옮기고 번들의 참조를
+> 고쳐 줍니다.
 
 ## 자동 배포 — GitHub Actions (권장)
 
@@ -49,7 +56,8 @@ npm run deploy:cf        # = wrangler pages deploy dist --project-name=safelense
 ## 대안 — CF 대시보드 Git 연동
 
 Actions 대신 Cloudflare가 직접 빌드하게 하려면: CF 대시보드 → Pages → Connect to Git → `SAFELENSE-FE`,
-Build command `npx expo export --platform web`, Output `dist`, env `NODE_VERSION=20`.
+Build command `npm run build:web`(에셋 경로 후처리가 포함되어야 하므로 `npx expo export`를 직접 쓰면 안 됨),
+Output `dist`, env `NODE_VERSION=20`.
 (이 방식을 쓰면 `.github/workflows/deploy.yml`는 삭제해도 됩니다.)
 
 ## 참고
