@@ -34,7 +34,8 @@ export function WizardHeader({
         ))}
       </View>
 
-      <View style={styles.back} />
+      {/* Invisible spacer the same size as the back button, so the dots stay centered. */}
+      <View style={styles.spacer} />
     </View>
   );
 }
@@ -61,6 +62,7 @@ const styles = StyleSheet.create({
     shadowRadius: 1.5,
     elevation: 2,
   },
+  spacer: { width: 36, height: 36 },
   pressed: { opacity: 0.6 },
   dots: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   dot: { width: 6, height: 6, borderRadius: radius.pill },

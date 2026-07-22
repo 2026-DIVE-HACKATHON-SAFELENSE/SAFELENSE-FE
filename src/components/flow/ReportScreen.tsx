@@ -264,7 +264,8 @@ export function ReportScreen() {
         <Pressable onPress={() => router.back()} hitSlop={8} style={({ pressed }) => [styles.back, pressed && styles.pressed]}>
           <Feather name="chevron-left" size={20} color={colors.textPrimary} />
         </Pressable>
-        <View style={styles.back} />
+        {/* Invisible spacer the same size as the back button, so the bar stays balanced. */}
+        <View style={styles.spacer} />
       </View>
 
       <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
@@ -419,6 +420,7 @@ const styles = StyleSheet.create({
     shadowRadius: 1.5,
     elevation: 2,
   },
+  spacer: { width: 36, height: 36 },
 
   body: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 24 },
   kicker: { fontSize: 12, lineHeight: 16 },

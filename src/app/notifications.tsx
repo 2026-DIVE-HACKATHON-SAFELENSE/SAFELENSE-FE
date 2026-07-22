@@ -136,7 +136,8 @@ export default function Notifications() {
         <AppText weight="bold" style={styles.headerTitle}>
           알림
         </AppText>
-        <View style={styles.back} />
+        {/* Invisible spacer the same size as the back button, so the title stays centered. */}
+        <View style={styles.spacer} />
       </View>
 
       <View style={styles.subBar}>
@@ -187,6 +188,7 @@ const styles = StyleSheet.create({
     shadowRadius: 1.5,
     elevation: 2,
   },
+  spacer: { width: 36, height: 36 },
   headerTitle: { fontSize: 16, lineHeight: 24, color: colors.textPrimary },
 
   subBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: 8, paddingBottom: 4 },
