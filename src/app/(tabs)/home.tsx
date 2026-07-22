@@ -1,11 +1,13 @@
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Svg, { Ellipse, Path } from 'react-native-svg';
 
 import { AppText } from '@/components/AppText';
 import { colors, radius, stageAccent } from '@/theme';
+
+const MASCOT = require('@/assets/images/Group 63.png');
 
 type Stage = {
   title: string;
@@ -75,14 +77,8 @@ export default function Home() {
     <View style={[styles.screen, { paddingTop: insets.top }]}>
       <View style={styles.header}>
         <View style={styles.brand}>
-          {/* SafeLens 마스코트 — 눈 두 개가 있는 집(스플래시 마크와 동일, Figma 10:2310). */}
-          <Svg width={34} height={30} viewBox="0 0 83 73">
-            <Path d="M0 24 L38.9 1.5 Q41.5 0 44.1 1.5 L83 24 L83 73 L0 73 Z" fill={colors.brand} />
-            <Ellipse cx={30.5} cy={46.5} rx={10.5} ry={10.5} fill={colors.white} />
-            <Ellipse cx={52.5} cy={46.5} rx={10.5} ry={10.5} fill={colors.white} />
-            <Ellipse cx={32} cy={46.5} rx={6.5} ry={6.5} fill={colors.textPrimary} />
-            <Ellipse cx={50.5} cy={46.5} rx={6.5} ry={6.5} fill={colors.textPrimary} />
-          </Svg>
+          {/* SafeLens 마스코트 — Figma 내보내기 에셋("Group 63", 83×73). */}
+          <Image source={MASCOT} style={styles.brandMark} contentFit="contain" />
           <View>
             <AppText weight="semibold" color={colors.textSecondary} style={styles.brandKicker}>
               안전한 계약을 함께 보는 친구
@@ -155,6 +151,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   brand: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  brandMark: { width: 34, height: 30 },
   brandKicker: { fontSize: 10, lineHeight: 14 },
   brandName: { fontSize: 14, lineHeight: 20, color: colors.textPrimary },
   bell: {
