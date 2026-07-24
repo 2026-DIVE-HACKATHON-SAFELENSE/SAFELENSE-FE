@@ -58,10 +58,10 @@ export default function MyPage() {
             </View>
             <View style={styles.flex}>
               <AppText weight="bold" color={colors.white} style={styles.name}>
-                {user ? user.name : '게스트 사용자'}
+                {user ? user.nickname : '게스트 사용자'}
               </AppText>
               <AppText color="rgba(255,255,255,0.7)" style={styles.sub}>
-                {user ? user.email : '로그인하면 분석 내역을 저장할 수 있습니다'}
+                {user ? '카카오 계정으로 로그인했어요' : '로그인하면 분석 내역을 저장할 수 있습니다'}
               </AppText>
             </View>
           </View>

@@ -3,6 +3,7 @@ import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
+import * as WebBrowser from 'expo-web-browser';
 import { useEffect } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -16,6 +17,11 @@ import { colors } from '@/theme';
 // Keep the native splash up until Pretendard is ready, so text never flashes
 // in a fallback font.
 SplashScreen.preventAutoHideAsync();
+
+// Web: when the Kakao OAuth popup redirects back to /auth/kakao/callback, this
+// hands the result to the opener window and closes the popup so promptAsync()
+// resolves. Runs on every module load (incl. the popup's); no-op on native.
+WebBrowser.maybeCompleteAuthSession();
 
 export default function RootLayout() {
   const [loaded, error] = useFonts({
@@ -56,6 +62,7 @@ export default function RootLayout() {
           <Stack.Screen name="index" />
           <Stack.Screen name="onboarding" />
           <Stack.Screen name="login" />
+          <Stack.Screen name="auth/kakao/callback" />
           <Stack.Screen name="(tabs)" />
           <Stack.Screen name="notifications" options={{ animation: 'slide_from_right' }} />
           <Stack.Screen name="pre-contract/checklist" options={{ animation: 'slide_from_right' }} />

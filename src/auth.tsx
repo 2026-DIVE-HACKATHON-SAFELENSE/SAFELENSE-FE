@@ -1,32 +1,98 @@
-import { createContext, useContext, useMemo, useState, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 
-export type User = { name: string; email: string } | null;
+import { exchangeKakao, getMe, logout, type UserProfile } from '@/api/auth';
+import { clearTokens, getAccessToken } from '@/session';
+
+export type User = UserProfile;
+
+type AuthStatus = 'loading' | 'authenticated' | 'guest';
 
 type AuthState = {
-  user: User;
-  /** Mock Kakao sign-in (real SDK lands later). */
-  signIn: () => void;
-  /** Enter the app without an account (둘러보기). */
+  user: User | null;
+  /** 'loading' 동안 초기 세션 복원 중; 이후 'authenticated' | 'guest'. */
+  status: AuthStatus;
+  /** 카카오 인가코드로 로그인 (백엔드 토큰 교환 + 프로필 로드). */
+  signInWithKakao: (authorizationCode: string, redirectUri: string) => Promise<void>;
+  /** 계정 없이 둘러보기(게스트). */
   browseAsGuest: () => void;
-  signOut: () => void;
+  signOut: () => Promise<void>;
+  /** /me 재조회 (예: 온보딩 완료 후 상태 갱신). */
+  refreshUser: () => Promise<void>;
 };
-
-const MOCK_USER = { name: '김안심', email: 'anshim@email.com' };
 
 const AuthContext = createContext<AuthState | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User>(null);
+  const [user, setUser] = useState<User | null>(null);
+  const [status, setStatus] = useState<AuthStatus>('loading');
 
-  const value = useMemo<AuthState>(
-    () => ({
-      user,
-      signIn: () => setUser(MOCK_USER),
-      browseAsGuest: () => setUser(null),
-      signOut: () => setUser(null),
-    }),
-    [user],
-  );
+  // 앱 부팅 시 저장된 토큰으로 세션 복원. 토큰이 없거나 복원 실패 시 게스트로.
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const token = await getAccessToken();
+        if (!token) {
+          if (alive) setStatus('guest');
+          return;
+        }
+        // 401 이면 client 가 refresh 를 시도하고, 그래도 실패하면 throw 된다.
+        const me = await getMe();
+        if (alive) {
+          setUser(me);
+          setStatus('authenticated');
+        }
+      } catch {
+        await clearTokens();
+        if (alive) {
+          setUser(null);
+          setStatus('guest');
+        }
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const signInWithKakao = async (authorizationCode: string, redirectUri: string) => {
+    await exchangeKakao(authorizationCode, redirectUri);
+    const me = await getMe();
+    setUser(me);
+    setStatus('authenticated');
+  };
+
+  const browseAsGuest = () => {
+    setUser(null);
+    setStatus('guest');
+  };
+
+  const signOut = async () => {
+    try {
+      await logout();
+    } catch {
+      // 서버측 폐기에 실패해도 로컬 세션은 반드시 정리한다.
+    } finally {
+      await clearTokens();
+      setUser(null);
+      setStatus('guest');
+    }
+  };
+
+  const refreshUser = async () => {
+    const me = await getMe();
+    setUser(me);
+    setStatus('authenticated');
+  };
+
+  const value: AuthState = {
+    user,
+    status,
+    signInWithKakao,
+    browseAsGuest,
+    signOut,
+    refreshUser,
+  };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

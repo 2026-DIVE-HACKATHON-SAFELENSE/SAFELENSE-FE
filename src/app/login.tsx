@@ -1,10 +1,13 @@
+import * as AuthSession from 'expo-auth-session';
 import { router } from 'expo-router';
-import { Alert, Pressable, StyleSheet, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, Alert, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAuth } from '@/auth';
 import { AppText } from '@/components/AppText';
 import { KakaoLogo } from '@/components/KakaoLogo';
+import { KAKAO_DISCOVERY, KAKAO_REDIRECT_PATH, KAKAO_REST_API_KEY } from '@/config';
 import { colors, radius } from '@/theme';
 
 const stub = (feature: string) =>
@@ -12,18 +15,68 @@ const stub = (feature: string) =>
 
 export default function Login() {
   const insets = useSafeAreaInsets();
-  const { signIn, browseAsGuest } = useAuth();
+  const { signInWithKakao, browseAsGuest } = useAuth();
+  const [busy, setBusy] = useState(false);
+  // 이미 백엔드에 넘긴 인가코드. 1회용 코드를 리렌더/StrictMode 로 두 번 교환하면
+  // 두 번째가 "authorization code is invalid" 로 실패하므로 코드별 1회만 처리한다.
+  const handledCode = useRef<string | null>(null);
 
-  // Kakao auth is stubbed: sign-in is mocked so the app is reachable. "둘러보기"
-  // enters as a guest. Real @react-native-seoul/kakao-login lands in a later task.
+  // 카카오 REST OAuth. 백엔드가 client_secret 으로 code→token 을 교환하므로 PKCE 는
+  // 끈다(계약에 codeVerifier 없음). redirectUri 는 authorize 요청과 백엔드 교환에
+  // 같은 값을 써야 하므로 한 번 만들어 재사용한다. 웹은 현재 origin + 경로,
+  // 네이티브는 safelense:// 스킴으로 생성된다.
+  const redirectUri = AuthSession.makeRedirectUri({
+    scheme: 'safelense',
+    path: KAKAO_REDIRECT_PATH,
+  });
+
+  const [request, response, promptAsync] = AuthSession.useAuthRequest(
+    {
+      clientId: KAKAO_REST_API_KEY,
+      redirectUri,
+      usePKCE: false,
+      scopes: [],
+    },
+    KAKAO_DISCOVERY,
+  );
+
+  // 카카오 인가 결과 처리: 성공 시 인가코드를 백엔드에 넘겨 로그인 완료.
+  useEffect(() => {
+    if (response?.type === 'success' && response.params.code) {
+      const code = response.params.code;
+      if (handledCode.current === code) return; // 같은 코드 재교환 방지
+      handledCode.current = code;
+      if (__DEV__) console.log('[kakao] exchanging code with redirectUri:', redirectUri);
+      (async () => {
+        try {
+          setBusy(true);
+          await signInWithKakao(code, redirectUri);
+          router.replace('/home');
+        } catch (e) {
+          setBusy(false);
+          Alert.alert(
+            '로그인 실패',
+            e instanceof Error ? e.message : '잠시 후 다시 시도해주세요.',
+          );
+        }
+      })();
+    } else if (response?.type === 'error') {
+      Alert.alert('로그인 실패', response.error?.message ?? '카카오 인증 중 오류가 발생했습니다.');
+    }
+    // redirectUri/signInWithKakao 는 매 렌더 안정적이므로 response 만 관찰한다.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [response]);
+
   const loginWithKakao = () => {
-    signIn();
-    router.replace('/home');
+    if (busy || !request) return;
+    promptAsync();
   };
   const browse = () => {
     browseAsGuest();
     router.replace('/home');
   };
+
+  const kakaoDisabled = busy || !request;
 
   return (
     <View style={[styles.screen, { paddingTop: insets.top, paddingBottom: insets.bottom + 32 }]}>
@@ -47,13 +100,24 @@ export default function Login() {
       <View style={styles.loginBlock}>
         <Pressable
           onPress={loginWithKakao}
-          style={({ pressed }) => [styles.kakaoBtn, pressed && styles.pressed]}
+          disabled={kakaoDisabled}
+          style={({ pressed }) => [
+            styles.kakaoBtn,
+            pressed && styles.pressed,
+            kakaoDisabled && styles.disabled,
+          ]}
         >
-          <KakaoLogo size={24} />
-          <AppText weight="semibold" color={colors.kakaoText} style={styles.kakaoText}>
-            카카오로 시작하기
-          </AppText>
-          <View style={styles.kakaoSpacer} />
+          {busy ? (
+            <ActivityIndicator color={colors.kakaoText} />
+          ) : (
+            <>
+              <KakaoLogo size={24} />
+              <AppText weight="semibold" color={colors.kakaoText} style={styles.kakaoText}>
+                카카오로 시작하기
+              </AppText>
+              <View style={styles.kakaoSpacer} />
+            </>
+          )}
         </Pressable>
         <AppText weight="medium" color={colors.kakaoSubtext} style={styles.helper}>
           소셜 로그인 계정으로 간편하게 시작해보세요.
@@ -103,9 +167,11 @@ const styles = StyleSheet.create({
     backgroundColor: colors.kakao,
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     paddingHorizontal: 24,
   },
   pressed: { opacity: 0.85 },
+  disabled: { opacity: 0.6 },
   kakaoText: { flex: 1, fontSize: 16, textAlign: 'center' },
   kakaoSpacer: { width: 24 },
   helper: { fontSize: 14 },

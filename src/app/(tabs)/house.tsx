@@ -1,5 +1,6 @@
 import { Feather } from '@expo/vector-icons';
-import { type ComponentProps, useState } from 'react';
+import { router } from 'expo-router';
+import { type ComponentProps, useEffect, useState } from 'react';
 import {
   Alert,
   Pressable,
@@ -13,13 +14,23 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import {
+  BUILDING_TYPE_OPTIONS,
+  buildingTypeLabel,
+  buildingTypeValue,
+  createProperty,
+  getProperty,
+  type PropertyInput,
+  updateProperty,
+} from '@/api/property';
+import { useAuth } from '@/auth';
 import { AppText } from '@/components/AppText';
 import { WideButton } from '@/components/WideButton';
 import { colors, font, radius } from '@/theme';
 
 type FeatherName = ComponentProps<typeof Feather>['name'];
 
-const BUILDING_TYPES = ['빌라/다세대', '아파트', '오피스텔', '단독주택'];
+const BUILDING_TYPES = BUILDING_TYPE_OPTIONS.map((o) => o.label);
 const PLACEHOLDER = 'rgba(123, 139, 178, 0.4)';
 
 function Label({ text, required }: { text: string; required?: boolean }) {
@@ -46,11 +57,78 @@ function InputPill({
 
 export default function House() {
   const insets = useSafeAreaInsets();
+  const { status } = useAuth();
   const [address, setAddress] = useState('');
   const [deposit, setDeposit] = useState('');
-  const [buildingType, setBuildingType] = useState('빌라/다세대');
+  const [buildingType, setBuildingType] = useState(BUILDING_TYPES[0]);
   const [landlord, setLandlord] = useState('');
   const [date, setDate] = useState('');
+  // 이미 등록된 집이 있으면 그 id — 저장 시 POST(신규) vs PATCH(수정) 분기에 쓴다.
+  const [propertyId, setPropertyId] = useState<number | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  // 로그인 상태면 기존에 등록한 내 집 정보를 불러와 폼을 채운다.
+  useEffect(() => {
+    if (status !== 'authenticated') return;
+    let alive = true;
+    (async () => {
+      try {
+        const p = await getProperty();
+        if (alive && p) {
+          setPropertyId(p.id);
+          setAddress(p.address);
+          setDeposit(String(p.depositAmount));
+          setBuildingType(buildingTypeLabel(p.buildingType));
+          setLandlord(p.landlordName ?? '');
+          setDate(p.plannedContractDate ?? '');
+        }
+      } catch {
+        // 미등록/조회 실패는 빈 폼으로 둔다.
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [status]);
+
+  const onSave = async () => {
+    if (saving) return;
+    if (status !== 'authenticated') {
+      Alert.alert('로그인 필요', '내 집 정보를 저장하려면 로그인이 필요합니다.', [
+        { text: '취소', style: 'cancel' },
+        { text: '로그인', onPress: () => router.push('/login') },
+      ]);
+      return;
+    }
+    const depositAmount = parseInt(deposit.replace(/[^0-9]/g, ''), 10);
+    if (!address.trim() || !depositAmount) {
+      Alert.alert('입력 확인', '주소와 보증금을 입력해 주세요.');
+      return;
+    }
+    const input: PropertyInput = {
+      address: address.trim(),
+      depositAmount,
+      buildingType: buildingTypeValue(buildingType),
+      landlordName: landlord.trim() || null,
+      plannedContractDate: date.trim() || null,
+    };
+    try {
+      setSaving(true);
+      if (propertyId != null) {
+        const p = await updateProperty(input);
+        if (p) setPropertyId(p.id);
+      } else {
+        await createProperty(input);
+        const p = await getProperty();
+        if (p) setPropertyId(p.id);
+      }
+      Alert.alert('저장 완료', '물건 정보가 저장되었습니다.');
+    } catch (e) {
+      Alert.alert('저장 실패', e instanceof Error ? e.message : '잠시 후 다시 시도해주세요.');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <View style={[styles.screen, { paddingTop: insets.top }]}>
@@ -135,10 +213,7 @@ export default function House() {
         </View>
 
         <View style={styles.submit}>
-          <WideButton
-            label="저장하기"
-            onPress={() => Alert.alert('저장 완료', '물건 정보가 저장되었습니다. (데모)')}
-          />
+          <WideButton label={saving ? '저장 중...' : '저장하기'} onPress={onSave} />
         </View>
       </ScrollView>
     </View>

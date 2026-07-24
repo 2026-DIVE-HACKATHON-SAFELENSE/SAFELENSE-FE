@@ -1,9 +1,17 @@
 import { Feather, Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { type ReactNode, useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { type ReactNode, useEffect, useState } from 'react';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import {
+  listNotifications,
+  markAllNotificationsRead,
+  markNotificationRead,
+  type NotificationItem,
+  type NotificationType,
+} from '@/api/notifications';
+import { useAuth } from '@/auth';
 import { AppText } from '@/components/AppText';
 import { colors, radius } from '@/theme';
 
@@ -17,80 +25,77 @@ const CATEGORY: Record<Category, { text: string; bg: string; icon: (color: strin
   위험: { text: '#FB2C36', bg: '#FFE2E2', icon: (c) => <Feather name="shield" size={18} color={c} /> },
 };
 
-type Noti = { id: string; category: Category; title: string; body: string; time: string; unread: boolean };
-type Section = { label: string; items: Noti[] };
+const TYPE_TO_CATEGORY: Record<NotificationType, Category> = {
+  ANALYSIS: '분석',
+  NEWS: '뉴스',
+  SYSTEM: '시스템',
+};
 
-const SECTIONS: Section[] = [
-  {
-    label: '오늘',
-    items: [
-      {
-        id: 'n1',
-        category: '분석',
-        title: 'AI 분석 완료',
-        body: "'계약 전' 분석 리포트가 생성되었습니다. 위험 지수 62점 · 중위험",
-        time: '방금 전',
-        unread: true,
-      },
-      {
-        id: 'n2',
-        category: '뉴스',
-        title: '전세 사기 주의보',
-        body: '인천 미추홀구 일대에서 동일 수법의 전세 사기 피해 사례가 신규 접수되었습니다.',
-        time: '3시간 전',
-        unread: true,
-      },
-    ],
-  },
-  {
-    label: '어제',
-    items: [
-      {
-        id: 'n3',
-        category: '시스템',
-        title: '앱 업데이트 완료',
-        body: '전세 안심 v1.0.1이 적용되었습니다. AI 유사 사례 데이터베이스가 업데이트됐어요.',
-        time: '어제',
-        unread: false,
-      },
-      {
-        id: 'n4',
-        category: '분석',
-        title: 'AI 분석 완료',
-        body: "'계약 후' 분석 리포트가 생성되었습니다. 위험 지수 41점 · 중위험",
-        time: '어제',
-        unread: false,
-      },
-    ],
-  },
-  {
-    label: '이전',
-    items: [
-      {
-        id: 'n5',
-        category: '뉴스',
-        title: '정책 변경 안내',
-        body: '2026년 7월부터 전세보증금 반환 보증 가입 요건이 완화되었습니다.',
-        time: '3일 전',
-        unread: false,
-      },
-      {
-        id: 'n6',
-        category: '위험',
-        title: '위험 신호 해제',
-        body: '등록 주소의 가압류 등기가 말소되었습니다. 위험 지수가 낮아졌습니다.',
-        time: '3일 전',
-        unread: false,
-      },
-    ],
-  },
-];
+/** createdAt → "방금 전 / N분 전 / N시간 전 / 어제 / N일 전". */
+function relativeTime(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime();
+  const min = Math.floor(diff / 60000);
+  if (min < 1) return '방금 전';
+  if (min < 60) return `${min}분 전`;
+  const hr = Math.floor(min / 60);
+  if (hr < 24) return `${hr}시간 전`;
+  const day = Math.floor(hr / 24);
+  if (day === 1) return '어제';
+  if (day < 7) return `${day}일 전`;
+  return new Date(iso).toLocaleDateString('ko-KR');
+}
 
-const ALL_IDS = SECTIONS.flatMap((s) => s.items.map((n) => n.id));
+/** createdAt → 섹션 라벨 (달력 기준 오늘/어제/이전). */
+function sectionLabel(iso: string): '오늘' | '어제' | '이전' {
+  const now = new Date();
+  const startToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const t = new Date(iso).getTime();
+  if (t >= startToday) return '오늘';
+  if (t >= startToday - 86400000) return '어제';
+  return '이전';
+}
+
+/** 최신순 정렬 후 오늘/어제/이전으로 묶는다(빈 섹션 제외). */
+function groupByDate(items: NotificationItem[]): { label: string; items: NotificationItem[] }[] {
+  const sorted = [...items].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  const order: ('오늘' | '어제' | '이전')[] = ['오늘', '어제', '이전'];
+  return order
+    .map((label) => ({ label, items: sorted.filter((n) => sectionLabel(n.createdAt) === label) }))
+    .filter((s) => s.items.length > 0);
+}
+
+/** 로그인 전/오류 시 화면이 비지 않도록 쓰는 대표 데모 알림. */
+function demoNotifications(): NotificationItem[] {
+  const now = Date.now();
+  const min = 60000;
+  const hr = 3600000;
+  const day = 86400000;
+  return [
+    { id: 1, type: 'ANALYSIS', title: 'AI 분석 완료', body: "'계약 전' 분석 리포트가 생성되었습니다. 위험 지수 62점 · 중위험", isRead: false, createdAt: new Date(now - 2 * min).toISOString() },
+    { id: 2, type: 'NEWS', title: '전세 사기 주의보', body: '인천 미추홀구 일대에서 동일 수법의 전세 사기 피해 사례가 신규 접수되었습니다.', isRead: false, createdAt: new Date(now - 3 * hr).toISOString() },
+    { id: 3, type: 'SYSTEM', title: '앱 업데이트 완료', body: '전세 안심 v1.0.1이 적용되었습니다. AI 유사 사례 데이터베이스가 업데이트됐어요.', isRead: true, createdAt: new Date(now - day - 2 * hr).toISOString() },
+    { id: 4, type: 'ANALYSIS', title: 'AI 분석 완료', body: "'계약 후' 분석 리포트가 생성되었습니다. 위험 지수 41점 · 중위험", isRead: true, createdAt: new Date(now - day - 5 * hr).toISOString() },
+    { id: 5, type: 'NEWS', title: '정책 변경 안내', body: '2026년 7월부터 전세보증금 반환 보증 가입 요건이 완화되었습니다.', isRead: true, createdAt: new Date(now - 3 * day).toISOString() },
+  ];
+}
 
 /** A single notification row: category icon + badge/time/dot + title + body. */
-function NotiCard({ item, unread, onPress }: { item: Noti; unread: boolean; onPress: () => void }) {
-  const cat = CATEGORY[item.category];
+function NotiCard({
+  category,
+  title,
+  body,
+  time,
+  unread,
+  onPress,
+}: {
+  category: Category;
+  title: string;
+  body: string;
+  time: string;
+  unread: boolean;
+  onPress: () => void;
+}) {
+  const cat = CATEGORY[category];
   return (
     <Pressable onPress={onPress} style={({ pressed }) => [styles.card, unread ? styles.cardUnread : styles.cardRead, pressed && styles.pressed]}>
       <View style={[styles.iconBox, { backgroundColor: cat.bg }]}>{cat.icon(cat.text)}</View>
@@ -98,20 +103,20 @@ function NotiCard({ item, unread, onPress }: { item: Noti; unread: boolean; onPr
         <View style={styles.cardTop}>
           <View style={[styles.badge, { backgroundColor: cat.bg }]}>
             <AppText weight="semibold" color={cat.text} style={styles.badgeText}>
-              {item.category}
+              {category}
             </AppText>
           </View>
           <View style={styles.flex} />
           <AppText color={colors.textSecondary} style={styles.time}>
-            {item.time}
+            {time}
           </AppText>
           {unread ? <View style={styles.dot} /> : null}
         </View>
         <AppText weight="bold" style={styles.title}>
-          {item.title}
+          {title}
         </AppText>
         <AppText color={colors.textSecondary} style={styles.cardBody}>
-          {item.body}
+          {body}
         </AppText>
       </View>
     </Pressable>
@@ -120,12 +125,51 @@ function NotiCard({ item, unread, onPress }: { item: Noti; unread: boolean; onPr
 
 export default function Notifications() {
   const insets = useSafeAreaInsets();
-  // Track which notifications have been read; seed with the ones already read.
-  const [readIds, setReadIds] = useState<Set<string>>(() => new Set(SECTIONS.flatMap((s) => s.items.filter((n) => !n.unread).map((n) => n.id))));
+  const { status } = useAuth();
+  // null = 로딩 중. isReal = 서버 데이터(=읽음 처리를 서버에도 반영)인지 여부.
+  const [items, setItems] = useState<NotificationItem[] | null>(null);
+  const [isReal, setIsReal] = useState(false);
 
-  const unreadCount = useMemo(() => ALL_IDS.filter((id) => !readIds.has(id)).length, [readIds]);
-  const markOne = (id: string) => setReadIds((prev) => new Set(prev).add(id));
-  const markAll = () => setReadIds(new Set(ALL_IDS));
+  useEffect(() => {
+    if (status === 'loading') return;
+    let alive = true;
+    (async () => {
+      if (status !== 'authenticated') {
+        if (alive) {
+          setItems(demoNotifications());
+          setIsReal(false);
+        }
+        return;
+      }
+      try {
+        const list = await listNotifications();
+        if (alive) {
+          setItems(list.notifications);
+          setIsReal(true);
+        }
+      } catch {
+        if (alive) {
+          setItems(demoNotifications());
+          setIsReal(false);
+        }
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [status]);
+
+  const markOne = (id: number) => {
+    setItems((prev) => prev?.map((n) => (n.id === id ? { ...n, isRead: true } : n)) ?? prev);
+    if (isReal) markNotificationRead(id).catch(() => {});
+  };
+  const markAll = () => {
+    setItems((prev) => prev?.map((n) => ({ ...n, isRead: true })) ?? prev);
+    if (isReal) markAllNotificationsRead().catch(() => {});
+  };
+
+  const unreadCount = items ? items.filter((n) => !n.isRead).length : 0;
+  const sections = items ? groupByDate(items) : [];
 
   return (
     <View style={[styles.screen, { paddingTop: insets.top }]}>
@@ -151,20 +195,41 @@ export default function Notifications() {
         </Pressable>
       </View>
 
-      <ScrollView contentContainerStyle={[styles.body, { paddingBottom: insets.bottom + 24 }]} showsVerticalScrollIndicator={false}>
-        {SECTIONS.map((section) => (
-          <View key={section.label} style={styles.section}>
-            <AppText weight="semibold" color={colors.textSecondary} style={styles.sectionLabel}>
-              {section.label}
-            </AppText>
-            <View style={styles.list}>
-              {section.items.map((item) => (
-                <NotiCard key={item.id} item={item} unread={!readIds.has(item.id)} onPress={() => markOne(item.id)} />
-              ))}
+      {items === null ? (
+        <View style={styles.loading}>
+          <ActivityIndicator color={colors.brand} />
+        </View>
+      ) : (
+        <ScrollView contentContainerStyle={[styles.body, { paddingBottom: insets.bottom + 24 }]} showsVerticalScrollIndicator={false}>
+          {sections.map((section) => (
+            <View key={section.label} style={styles.section}>
+              <AppText weight="semibold" color={colors.textSecondary} style={styles.sectionLabel}>
+                {section.label}
+              </AppText>
+              <View style={styles.list}>
+                {section.items.map((item) => (
+                  <NotiCard
+                    key={item.id}
+                    category={TYPE_TO_CATEGORY[item.type]}
+                    title={item.title}
+                    body={item.body}
+                    time={relativeTime(item.createdAt)}
+                    unread={!item.isRead}
+                    onPress={() => markOne(item.id)}
+                  />
+                ))}
+              </View>
             </View>
-          </View>
-        ))}
-      </ScrollView>
+          ))}
+          {sections.length === 0 ? (
+            <View style={styles.empty}>
+              <AppText color={colors.textSecondary} style={styles.emptyText}>
+                받은 알림이 없습니다.
+              </AppText>
+            </View>
+          ) : null}
+        </ScrollView>
+      )}
     </View>
   );
 }
@@ -195,6 +260,10 @@ const styles = StyleSheet.create({
   unreadText: { fontSize: 12, lineHeight: 16 },
   markAll: { backgroundColor: colors.bannerBg, borderRadius: radius.pill, paddingHorizontal: 12, paddingVertical: 6 },
   markAllText: { fontSize: 12, lineHeight: 16 },
+
+  loading: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  empty: { paddingVertical: 48, alignItems: 'center' },
+  emptyText: { fontSize: 13, lineHeight: 20 },
 
   body: { paddingHorizontal: 20, paddingTop: 8 },
   section: { marginTop: 12 },

@@ -130,7 +130,7 @@ export default function Home() {
         <View style={styles.disclaimer}>
           <Feather name="info" size={16} color={colors.textSecondary} />
           <AppText color={colors.textSecondary} style={styles.disclaimerText}>
-            분석 결과는 참고용이며 법적 효력이 없습니다. 입력 정보는 서버에 저장되지 않습니다.
+            분석 결과는 참고용이며 법적 효력이 없습니다. 입력하신 정보는 분석 목적으로만 안전하게 사용됩니다.
           </AppText>
         </View>
       </ScrollView>
