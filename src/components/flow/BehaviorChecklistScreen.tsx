@@ -1,15 +1,35 @@
 import { Feather } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { Animated, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Animated, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { getTemplate, saveChecklist, toApiStage } from '@/api/analysis';
 import { AppText } from '@/components/AppText';
 import { WideButton } from '@/components/WideButton';
 import { WizardHeader } from '@/components/WizardHeader';
 import { BEHAVIOR_CHECKLISTS } from '@/data/behaviorChecklist';
 import { type ContractStage } from '@/data/contractFlow';
+import { getSession } from '@/flow/analysisSession';
 import { colors, radius } from '@/theme';
+
+type Section = {
+  id: string;
+  /** 세그먼트 탭에 표시할 짧은 라벨. */
+  tabLabel: string;
+  /** 항목 위 제목. */
+  heading: string;
+  items: { key: string; label: string }[];
+};
+
+/** 하드코딩 데이터(데모)를 정규화한 섹션. */
+const buildDemoSections = (stage: ContractStage): Section[] =>
+  BEHAVIOR_CHECKLISTS[stage].map((c) => ({
+    id: c.key,
+    tabLabel: c.key,
+    heading: c.heading,
+    items: c.items.map((label, i) => ({ key: `${c.key}:${i}`, label })),
+  }));
 
 /** A tappable positive-action row: mint radio + (possibly multi-line) label. */
 function CheckRow({ label, checked, onToggle }: { label: string; checked: boolean; onToggle: () => void }) {
@@ -39,18 +59,68 @@ function CheckRow({ label, checked, onToggle }: { label: string; checked: boolea
 }
 
 /**
- * 2단계 행태 체크리스트 (Figma 179:827 / 179:1246 / 179:2580). 단계별로 카테고리
- * 탭과 항목이 다르며, 제목("행태 체크리스트")은 공통. `onNext`로 분석 라우팅 주입.
+ * 2단계 행태 체크리스트 (Figma 179:827). 로그인+내 집(=케이스 존재)이면 서버 템플릿
+ * (getTemplate)의 섹션/항목을 렌더하고 "다음"에서 답변을 저장(saveChecklist)한다.
+ * 아니면 하드코딩 데이터로 폴백(저장 없음). `onNext`로 다음 단계 주입.
  */
 export function BehaviorChecklistScreen({ stage, onNext }: { stage: ContractStage; onNext: () => void }) {
   const insets = useSafeAreaInsets();
-  const categories = BEHAVIOR_CHECKLISTS[stage];
+  const caseId = getSession()?.caseId ?? null;
+  const isReal = caseId != null;
+
+  // 데모면 초기값으로 하드코딩 섹션(effect 동기 setState 회피), 실제면 null→effect 로드.
+  const [sections, setSections] = useState<Section[] | null>(() =>
+    getSession()?.caseId == null ? buildDemoSections(stage) : null,
+  );
   const [tab, setTab] = useState(0);
-  // Checked state keyed by "categoryIndex:itemIndex", preserved across tab switches.
   const [checked, setChecked] = useState<Record<string, boolean>>({});
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (caseId == null) return; // 데모는 초기값으로 이미 준비됨
+    let alive = true;
+    (async () => {
+      try {
+        const template = await getTemplate(toApiStage(stage));
+        if (alive) {
+          setSections(
+            template.sections.map((s) => ({
+              id: s.sectionKey,
+              tabLabel: s.label,
+              heading: s.label,
+              items: s.items.map((it) => ({ key: it.itemKey, label: it.label })),
+            })),
+          );
+        }
+      } catch {
+        if (alive) setSections(buildDemoSections(stage)); // 실패 시 데모로 폴백
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [stage, caseId]);
 
   const toggle = (key: string) => setChecked((prev) => ({ ...prev, [key]: !prev[key] }));
-  const category = categories[tab];
+
+  const onProceed = async () => {
+    if (saving) return;
+    // 실제 모드면 체크리스트 답변 저장(best-effort — 실패해도 흐름 진행).
+    if (isReal && caseId != null && sections) {
+      try {
+        setSaving(true);
+        const answers = sections.flatMap((s) => s.items).map((it) => ({ itemKey: it.key, checked: !!checked[it.key] }));
+        await saveChecklist(caseId, answers);
+      } catch {
+        // 저장 실패는 무시하고 진행
+      } finally {
+        setSaving(false);
+      }
+    }
+    onNext();
+  };
+
+  const category = sections?.[Math.min(tab, (sections?.length ?? 1) - 1)];
 
   return (
     <View style={[styles.screen, { paddingTop: insets.top }]}>
@@ -67,50 +137,59 @@ export function BehaviorChecklistScreen({ stage, onNext }: { stage: ContractStag
           해당되는 상황에 모두 체크해 주세요
         </AppText>
 
-        <View style={styles.card}>
-          {/* Connected segmented control by category (Figma 179:827). */}
-          <View style={styles.segment}>
-            {categories.map((c, i) => {
-              const active = i === tab;
-              return (
-                <Pressable
-                  key={c.key}
-                  onPress={() => setTab(i)}
-                  style={({ pressed }) => [
-                    styles.segItem,
-                    i > 0 && !active && styles.segDivider,
-                    active && styles.segActive,
-                    pressed && !active && styles.segPressed,
-                  ]}
-                >
-                  <AppText
-                    weight={active ? 'semibold' : 'regular'}
-                    color={active ? colors.white : colors.textPrimary}
-                    style={styles.segText}
-                    numberOfLines={1}
+        {sections === null || !category ? (
+          <View style={styles.loading}>
+            <ActivityIndicator color={colors.brand} />
+          </View>
+        ) : (
+          <View style={styles.card}>
+            {/* Connected segmented control by category (Figma 179:827). */}
+            <View style={styles.segment}>
+              {sections.map((c, i) => {
+                const active = i === tab;
+                return (
+                  <Pressable
+                    key={c.id}
+                    onPress={() => setTab(i)}
+                    style={({ pressed }) => [
+                      styles.segItem,
+                      i > 0 && !active && styles.segDivider,
+                      active && styles.segActive,
+                      pressed && !active && styles.segPressed,
+                    ]}
                   >
-                    {c.key}
-                  </AppText>
-                </Pressable>
-              );
-            })}
-          </View>
+                    <AppText
+                      weight={active ? 'semibold' : 'regular'}
+                      color={active ? colors.white : colors.textPrimary}
+                      style={styles.segText}
+                      numberOfLines={1}
+                    >
+                      {c.tabLabel}
+                    </AppText>
+                  </Pressable>
+                );
+              })}
+            </View>
 
-          <AppText weight="bold" style={styles.heading}>
-            {category.heading}
-          </AppText>
+            <AppText weight="bold" style={styles.heading}>
+              {category.heading}
+            </AppText>
 
-          <View style={styles.list}>
-            {category.items.map((label, i) => {
-              const key = `${tab}:${i}`;
-              return <CheckRow key={key} label={label} checked={!!checked[key]} onToggle={() => toggle(key)} />;
-            })}
+            <View style={styles.list}>
+              {category.items.map((it) => (
+                <CheckRow key={it.key} label={it.label} checked={!!checked[it.key]} onToggle={() => toggle(it.key)} />
+              ))}
+            </View>
           </View>
-        </View>
+        )}
       </ScrollView>
 
       <View style={[styles.footer, { paddingBottom: insets.bottom + 24 }]}>
-        <WideButton label="다음 단계로" icon={<Feather name="arrow-right" size={20} color={colors.white} />} onPress={onNext} />
+        <WideButton
+          label={saving ? '저장 중...' : '다음 단계로'}
+          icon={<Feather name="arrow-right" size={20} color={colors.white} />}
+          onPress={onProceed}
+        />
       </View>
     </View>
   );
@@ -123,6 +202,8 @@ const styles = StyleSheet.create({
   kicker: { fontSize: 12, lineHeight: 16 },
   title: { fontSize: 24, lineHeight: 32, color: colors.textPrimary, marginTop: 4 },
   subtitle: { fontSize: 14, lineHeight: 20, marginTop: 4 },
+
+  loading: { marginTop: 40, alignItems: 'center' },
 
   card: {
     marginTop: 24,
@@ -150,7 +231,7 @@ const styles = StyleSheet.create({
   segDivider: { borderLeftWidth: 1, borderLeftColor: '#D9D9D9' },
   segActive: { backgroundColor: colors.brand },
   segPressed: { opacity: 0.6 },
-  segText: { fontSize: 10, lineHeight: 15 },
+  segText: { fontSize: 10, lineHeight: 15, paddingHorizontal: 4 },
 
   heading: { fontSize: 14, lineHeight: 20, color: colors.textPrimary, marginTop: 16 },
 

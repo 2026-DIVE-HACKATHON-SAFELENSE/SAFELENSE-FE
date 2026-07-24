@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { isAddressSearchAvailable, openAddressSearch } from '@/addressSearch';
 import {
   BUILDING_TYPE_OPTIONS,
   buildingTypeLabel,
@@ -130,6 +131,18 @@ export default function House() {
     }
   };
 
+  // 우편번호 검색으로 도로명주소를 채운다(정합성 확보). 웹 전용.
+  const onSearchAddress = async () => {
+    try {
+      const result = await openAddressSearch();
+      if (result) {
+        setAddress(result.buildingName ? `${result.address} (${result.buildingName})` : result.address);
+      }
+    } catch (e) {
+      Alert.alert('주소 검색', e instanceof Error ? e.message : '주소 검색을 열 수 없어요.');
+    }
+  };
+
   return (
     <View style={[styles.screen, { paddingTop: insets.top }]}>
       <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
@@ -145,8 +158,16 @@ export default function House() {
           <InputPill
             value={address}
             onChangeText={setAddress}
-            placeholder="서울시 마포구 합정동 123-45"
+            placeholder="주소를 검색하거나 직접 입력"
           />
+          {isAddressSearchAvailable ? (
+            <Pressable onPress={onSearchAddress} style={({ pressed }) => [styles.searchBtn, pressed && styles.pressed]}>
+              <Feather name="search" size={14} color={colors.brand} />
+              <AppText weight="semibold" color={colors.brand} style={styles.searchText}>
+                우편번호로 주소 검색
+              </AppText>
+            </Pressable>
+          ) : null}
         </View>
 
         <View style={styles.card}>
@@ -242,6 +263,17 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   label: { fontSize: 12, lineHeight: 16 },
+  searchBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    marginTop: 8,
+    height: 40,
+    borderRadius: radius.pill,
+    backgroundColor: colors.bannerBg,
+  },
+  searchText: { fontSize: 13, lineHeight: 18 },
   subLabel: { fontSize: 12, lineHeight: 16, marginTop: 12, marginBottom: 6 },
   gap: { marginTop: 12 },
 

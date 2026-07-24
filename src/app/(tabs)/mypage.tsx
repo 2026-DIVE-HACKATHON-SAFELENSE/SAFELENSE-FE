@@ -1,9 +1,11 @@
 import { Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
+import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { listAnalyses } from '@/api/analysis';
 import { useAuth } from '@/auth';
 import { AppText } from '@/components/AppText';
 import { colors, gradient, radius } from '@/theme';
@@ -41,6 +43,29 @@ function StatCard({ num, label, color }: { num: string; label: string; color: st
 export default function MyPage() {
   const insets = useSafeAreaInsets();
   const { user, signOut } = useAuth();
+  const [stats, setStats] = useState({ completed: 0, alerts: 0 });
+
+  // 로그인 상태면 실제 분석 이력으로 통계를 채운다.
+  useEffect(() => {
+    if (!user) return;
+    let alive = true;
+    (async () => {
+      try {
+        const page = await listAnalyses();
+        if (alive) {
+          setStats({
+            completed: page.analyses.length,
+            alerts: page.analyses.filter((a) => a.grade === 'HIGH').length,
+          });
+        }
+      } catch {
+        // 조회 실패는 0 유지
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [user]);
 
   return (
     <View style={[styles.screen, { paddingTop: insets.top }]}>
@@ -68,9 +93,9 @@ export default function MyPage() {
 
           {user ? (
             <View style={styles.pillRow}>
-              <StatPill num="3" label="분석 완료" />
-              <StatPill num="1" label="저장된 리포트" />
-              <StatPill num="0" label="위험 경보" />
+              <StatPill num={String(stats.completed)} label="분석 완료" />
+              <StatPill num={String(stats.completed)} label="저장된 리포트" />
+              <StatPill num={String(stats.alerts)} label="위험 경보" />
             </View>
           ) : (
             <Pressable
