@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 
-import { exchangeKakao, getMe, logout, type UserProfile } from '@/api/auth';
+import { exchangeKakao, getMe, logout, updateOnboarding, type UserProfile } from '@/api/auth';
 import { clearTokens, getAccessToken } from '@/session';
 
 export type User = UserProfile;
@@ -57,7 +57,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signInWithKakao = async (authorizationCode: string, redirectUri: string) => {
     await exchangeKakao(authorizationCode, redirectUri);
-    const me = await getMe();
+    let me = await getMe();
+    // 로그인까지 온 사용자는 온보딩을 마친 것으로 간주 — 처음이면 완료 처리.
+    if (!me.onboardingCompleted) {
+      try {
+        me = await updateOnboarding(true);
+      } catch {
+        // 온보딩 갱신 실패는 무시
+      }
+    }
     setUser(me);
     setStatus('authenticated');
   };

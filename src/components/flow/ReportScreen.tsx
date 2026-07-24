@@ -1,14 +1,15 @@
 import { Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { type ComponentProps, useEffect, useRef, useState } from 'react';
 import { Alert, Animated, Easing, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { type AnalysisResult, gradeDescriptor } from '@/api/analysis';
-import { buildingTypeLabel, type Property } from '@/api/property';
+import { type AnalysisResult, fetchReportPdfBlob, getAnalysis, gradeDescriptor } from '@/api/analysis';
+import { buildingTypeLabel, getProperty, type Property } from '@/api/property';
 import { AppText } from '@/components/AppText';
 import { WideButton } from '@/components/WideButton';
+import { downloadBlob, isDownloadSupported } from '@/downloadBlob';
 import { getSession } from '@/flow/analysisSession';
 import { colors, gradient, radius } from '@/theme';
 
@@ -553,9 +554,52 @@ function DemoReport() {
  */
 export function ReportScreen() {
   const insets = useSafeAreaInsets();
-  const session = getSession();
-  const result = session?.result ?? null;
-  const property = session?.property ?? null;
+  const { analysisId } = useLocalSearchParams<{ analysisId?: string }>();
+  const [result, setResult] = useState<AnalysisResult | null>(() => getSession()?.result ?? null);
+  const [property, setProperty] = useState<Property | null>(() => getSession()?.property ?? null);
+  const [saving, setSaving] = useState(false);
+
+  // 세션에 결과가 없고(예: 웹 새로고침) analysisId 가 있으면 서버에서 복원한다.
+  useEffect(() => {
+    if (result || !analysisId) return;
+    let alive = true;
+    (async () => {
+      try {
+        const r = await getAnalysis(Number(analysisId));
+        if (!alive) return;
+        setResult(r);
+        const p = await getProperty();
+        if (alive) setProperty(p);
+      } catch {
+        // 복원 실패 시 데모 렌더로 폴백
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [analysisId, result]);
+
+  // "저장": 실제 결과면 PDF 다운로드(웹), 아니면 안내.
+  const onSave = async () => {
+    if (saving) return;
+    if (!result) {
+      Alert.alert('저장', '리포트가 저장되었습니다. (데모)');
+      return;
+    }
+    if (!isDownloadSupported) {
+      Alert.alert('저장 완료', '분석 결과는 마이페이지 분석 내역에 저장돼 있어요. PDF 다운로드는 웹에서 지원됩니다.');
+      return;
+    }
+    try {
+      setSaving(true);
+      const blob = await fetchReportPdfBlob(result.id);
+      downloadBlob(blob, `safelens-report-${result.id}.pdf`);
+    } catch (e) {
+      Alert.alert('다운로드 실패', e instanceof Error ? e.message : 'PDF를 받지 못했어요.');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <View style={[styles.screen, { paddingTop: insets.top }]}>
@@ -577,17 +621,12 @@ export function ReportScreen() {
         </View>
         <View style={styles.flex}>
           <WideButton
-            label="저장"
+            label={saving ? '저장 중...' : '저장'}
             height={50}
             labelSize={14}
             icon={<Feather name="download" size={16} color={colors.white} />}
             iconPosition="leading"
-            onPress={() =>
-              Alert.alert(
-                '저장 완료',
-                result ? '분석 결과는 마이페이지 분석 내역에 저장되어 있어요.' : '리포트가 저장되었습니다. (데모)',
-              )
-            }
+            onPress={onSave}
           />
         </View>
       </View>

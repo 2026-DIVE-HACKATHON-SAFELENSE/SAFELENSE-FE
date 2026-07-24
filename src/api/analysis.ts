@@ -9,7 +9,9 @@ import * as Crypto from 'expo-crypto';
 import { Platform } from 'react-native';
 
 import { api } from '@/api/client';
+import { API_BASE_URL } from '@/config';
 import type { ContractStage } from '@/data/behaviorChecklist';
+import { getAccessToken } from '@/session';
 
 /** 서버 단계 enum ↔ 앱 단계('before'|'during'|'after'). */
 export type ApiStage = 'BEFORE_CONTRACT' | 'DURING_CONTRACT' | 'AFTER_CONTRACT';
@@ -109,6 +111,24 @@ export async function uploadDocument(
     `/api/v1/analysis-cases/${caseId}/documents?documentType=${encodeURIComponent(documentType)}`,
     form,
   );
+}
+
+/** 업로드된 서류 삭제 (204 No Content). */
+export function deleteDocument(caseId: number, documentId: number): Promise<void> {
+  return api.delete<void>(`/api/v1/analysis-cases/${caseId}/documents/${documentId}`);
+}
+
+/**
+ * 분석 PDF 리포트를 인증 헤더로 받아 Blob 으로 반환. JSON 클라이언트 밖의 바이너리
+ * 경로라 직접 fetch 한다(웹에서 Blob → 브라우저 다운로드).
+ */
+export async function fetchReportPdfBlob(analysisId: number): Promise<Blob> {
+  const token = await getAccessToken();
+  const res = await fetch(`${API_BASE_URL}/api/v1/analyses/${analysisId}/report.pdf`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  if (!res.ok) throw new Error(`PDF 다운로드 실패 (${res.status})`);
+  return res.blob();
 }
 
 // ── 위험분석 실행 ───────────────────────────────────────────────────────────

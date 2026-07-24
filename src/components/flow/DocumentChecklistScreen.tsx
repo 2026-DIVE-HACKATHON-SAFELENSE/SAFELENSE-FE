@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Animated, Easing, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { createCase, type DocumentSlot, getCase, toApiStage, uploadDocument } from '@/api/analysis';
+import { createCase, deleteDocument, type DocumentSlot, getCase, toApiStage, uploadDocument } from '@/api/analysis';
 import { getProperty } from '@/api/property';
 import { useAuth } from '@/auth';
 import { AppText } from '@/components/AppText';
@@ -31,6 +31,8 @@ type Row = {
   key: string;
   /** 실제 서류 슬롯이면 documentType, 데모면 null. */
   documentType: string | null;
+  /** 업로드된 서류 ID(삭제에 사용). */
+  documentId: number | null;
   title: string;
   desc: string;
   required: boolean;
@@ -151,6 +153,7 @@ export function DocumentChecklistScreen({ stage, onNext }: { stage: ContractStag
       ? slots.map((d) => ({
           key: d.documentType,
           documentType: d.documentType,
+          documentId: d.documentId ?? null,
           title: d.label,
           desc: DOC_DESC[d.documentType] ?? '',
           required: d.required,
@@ -160,6 +163,7 @@ export function DocumentChecklistScreen({ stage, onNext }: { stage: ContractStag
       : DOCUMENT_ITEMS.map((it) => ({
           key: it.title,
           documentType: null,
+          documentId: null,
           title: it.title,
           desc: it.desc,
           required: it.required,
@@ -168,22 +172,9 @@ export function DocumentChecklistScreen({ stage, onNext }: { stage: ContractStag
 
   const toggle = (key: string) => setChecked((prev) => ({ ...prev, [key]: !prev[key] }));
 
-  const onUpload = async (row: Row) => {
-    if (!row.documentType) {
-      Alert.alert('로그인이 필요해요', '서류를 업로드하려면 로그인 후 내 집을 등록해 주세요.', [
-        { text: '취소', style: 'cancel' },
-        {
-          text: status === 'authenticated' ? '내 집 등록' : '로그인',
-          onPress: () => router.push(status === 'authenticated' ? '/house' : '/login'),
-        },
-      ]);
-      return;
-    }
+  const pickAndUpload = async (row: Row) => {
     const caseId = getSession()?.caseId;
-    if (!caseId) {
-      Alert.alert('잠시만요', '분석 케이스를 준비 중이에요. 잠시 후 다시 시도해 주세요.');
-      return;
-    }
+    if (!caseId || !row.documentType) return;
     try {
       const res = await DocumentPicker.getDocumentAsync({ type: '*/*', copyToCacheDirectory: true, multiple: false });
       if (res.canceled || !res.assets?.[0]) return;
@@ -212,6 +203,53 @@ export function DocumentChecklistScreen({ stage, onNext }: { stage: ContractStag
       Alert.alert('업로드 실패', e instanceof Error ? e.message : '파일 업로드에 실패했어요.');
     } finally {
       setUploadingKey(null);
+    }
+  };
+
+  const removeDoc = async (row: Row) => {
+    const caseId = getSession()?.caseId;
+    if (!caseId || row.documentId == null || !row.documentType) return;
+    try {
+      setUploadingKey(row.key);
+      await deleteDocument(caseId, row.documentId);
+      setSlots((prev) =>
+        prev?.map((d) =>
+          d.documentType === row.documentType
+            ? { ...d, documentId: null, originalFileName: null, mimeType: null, fileSize: null }
+            : d,
+        ) ?? prev,
+      );
+      setChecked((prev) => ({ ...prev, [row.key]: false }));
+    } catch (e) {
+      Alert.alert('삭제 실패', e instanceof Error ? e.message : '서류 삭제에 실패했어요.');
+    } finally {
+      setUploadingKey(null);
+    }
+  };
+
+  const onUploadPress = (row: Row) => {
+    if (!row.documentType) {
+      Alert.alert('로그인이 필요해요', '서류를 업로드하려면 로그인 후 내 집을 등록해 주세요.', [
+        { text: '취소', style: 'cancel' },
+        {
+          text: status === 'authenticated' ? '내 집 등록' : '로그인',
+          onPress: () => router.push(status === 'authenticated' ? '/house' : '/login'),
+        },
+      ]);
+      return;
+    }
+    if (!getSession()?.caseId) {
+      Alert.alert('잠시만요', '분석 케이스를 준비 중이에요. 잠시 후 다시 시도해 주세요.');
+      return;
+    }
+    if (row.uploaded) {
+      Alert.alert(row.title, row.fileName ?? '업로드된 파일', [
+        { text: '다시 업로드', onPress: () => pickAndUpload(row) },
+        { text: '삭제', style: 'destructive', onPress: () => removeDoc(row) },
+        { text: '취소', style: 'cancel' },
+      ]);
+    } else {
+      pickAndUpload(row);
     }
   };
 
@@ -275,7 +313,7 @@ export function DocumentChecklistScreen({ stage, onNext }: { stage: ContractStag
                 checked={!!checked[row.key]}
                 uploading={uploadingKey === row.key}
                 onToggle={() => toggle(row.key)}
-                onUpload={() => onUpload(row)}
+                onUpload={() => onUploadPress(row)}
               />
             ))}
           </View>

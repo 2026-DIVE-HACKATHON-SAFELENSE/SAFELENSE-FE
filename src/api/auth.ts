@@ -46,6 +46,11 @@ export function getMe(): Promise<UserProfile> {
   return api.get<UserProfile>('/api/v1/me');
 }
 
+/** 온보딩 완료 상태 변경 → 갱신된 프로필. */
+export function updateOnboarding(onboardingCompleted: boolean): Promise<UserProfile> {
+  return api.patch<UserProfile>('/api/v1/me/onboarding', { onboardingCompleted });
+}
+
 /** 서버측 refreshToken 폐기. 로컬 토큰 정리는 호출부에서 clearTokens 로 한다. */
 export function logout(): Promise<void> {
   return api.post<void>('/api/v1/auth/logout');

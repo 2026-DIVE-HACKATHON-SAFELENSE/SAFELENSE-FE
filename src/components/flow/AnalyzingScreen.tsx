@@ -150,7 +150,7 @@ function StepRow({ stage, index, active }: { stage: (typeof STAGES)[number]; ind
  * `createCase → analyze`를 실행해 결과를 세션에 저장한 뒤 `onDone`으로 리포트로 이동한다.
  * 데모 모드(세션에 risk 없음)면 애니메이션만 재생 후 `onDone`. 전/중/후 공통.
  */
-export function AnalyzingScreen({ onDone }: { onDone: () => void }) {
+export function AnalyzingScreen({ onDone }: { onDone: (analysisId?: number) => void }) {
   const [active, setActive] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
@@ -165,8 +165,9 @@ export function AnalyzingScreen({ onDone }: { onDone: () => void }) {
     const timers: ReturnType<typeof setTimeout>[] = [];
     let animDone = false;
     let apiDone = !real; // 데모 모드면 API 대기 불필요
+    let analysisId: number | undefined;
     const finish = () => {
-      if (animDone && apiDone && !cancelled) timers.push(setTimeout(() => onDoneRef.current(), 400));
+      if (animDone && apiDone && !cancelled) timers.push(setTimeout(() => onDoneRef.current(analysisId), 400));
     };
 
     // 4단계 애니메이션 (항상 재생). active 초기화는 마운트/재시도 시 이미 0.
@@ -192,6 +193,7 @@ export function AnalyzingScreen({ onDone }: { onDone: () => void }) {
           const result = await runAnalyze(caseId, session.risk!);
           if (cancelled) return;
           patchSession({ result });
+          analysisId = result.id;
           apiDone = true;
           finish();
         } catch (e) {
