@@ -75,7 +75,11 @@ async function request<T>(path: string, opts: RequestOptions = {}, retry = false
   // (플랫폼이 boundary 포함 헤더를 스스로 설정하도록).
   const isForm = typeof FormData !== 'undefined' && body instanceof FormData;
   const headers: Record<string, string> = { ...opts.headers };
-  if (body !== undefined && !isForm) headers['Content-Type'] = 'application/json';
+  if (body !== undefined && !isForm) {
+    // 백엔드는 PATCH 본문을 application/merge-patch+json 으로만 받는다.
+    // application/json 으로 보내면 415 가 아니라 401 을 돌려준다(백엔드 quirk).
+    headers['Content-Type'] = method === 'PATCH' ? 'application/merge-patch+json' : 'application/json';
+  }
   if (auth) {
     const token = await getAccessToken();
     if (token) headers.Authorization = `Bearer ${token}`;
