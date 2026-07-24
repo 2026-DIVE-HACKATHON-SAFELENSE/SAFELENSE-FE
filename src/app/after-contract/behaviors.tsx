@@ -4,5 +4,5 @@ import { BehaviorChecklistScreen } from '@/components/flow/BehaviorChecklistScre
 
 /** 계약 후 · 2단계 행태 체크리스트. */
 export default function Behaviors() {
-  return <BehaviorChecklistScreen stage="after" onNext={() => router.push('/after-contract/analyzing')} />;
+  return <BehaviorChecklistScreen stage="after" onNext={() => router.push('/after-contract/risk-input')} />;
 }

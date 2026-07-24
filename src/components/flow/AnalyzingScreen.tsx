@@ -1,9 +1,13 @@
 import { Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { router } from 'expo-router';
 import { type ComponentProps, useEffect, useRef, useState } from 'react';
 import { Animated, Easing, StyleSheet, View } from 'react-native';
 
+import { createCase, runAnalyze, toApiStage } from '@/api/analysis';
 import { AppText } from '@/components/AppText';
+import { WideButton } from '@/components/WideButton';
+import { getSession, patchSession } from '@/flow/analysisSession';
 import { colors, gradient, radius } from '@/theme';
 
 type FeatherName = ComponentProps<typeof Feather>['name'];
@@ -142,30 +146,105 @@ function StepRow({ stage, index, active }: { stage: (typeof STAGES)[number]; ind
 }
 
 /**
- * 분석 애니메이션 화면. 4개 가짜 단계를 타이머로 자동 진행한 뒤 `onDone`을 호출해
- * 해당 단계의 리포트로 이동한다 (단계 전/중/후 공통).
+ * 분석 화면. 4단계 애니메이션을 보여주며, 실제 모드(위험정보 입력 + 내 집 존재)면
+ * `createCase → analyze`를 실행해 결과를 세션에 저장한 뒤 `onDone`으로 리포트로 이동한다.
+ * 데모 모드(세션에 risk 없음)면 애니메이션만 재생 후 `onDone`. 전/중/후 공통.
  */
 export function AnalyzingScreen({ onDone }: { onDone: () => void }) {
   const [active, setActive] = useState(0);
-  // Keep the latest onDone without restarting the timer chain if the prop identity changes.
+  const [error, setError] = useState<string | null>(null);
+  const [attempt, setAttempt] = useState(0);
   const onDoneRef = useRef(onDone);
   onDoneRef.current = onDone;
 
   useEffect(() => {
+    const session = getSession();
+    const real = !!session && session.risk != null && session.property?.id != null;
+
+    let cancelled = false;
     const timers: ReturnType<typeof setTimeout>[] = [];
+    let animDone = false;
+    let apiDone = !real; // 데모 모드면 API 대기 불필요
+    const finish = () => {
+      if (animDone && apiDone && !cancelled) timers.push(setTimeout(() => onDoneRef.current(), 400));
+    };
+
+    // 4단계 애니메이션 (항상 재생). active 초기화는 마운트/재시도 시 이미 0.
     let idx = 0;
     const advance = () => {
       idx += 1;
       if (idx >= STAGES.length) {
-        timers.push(setTimeout(() => onDoneRef.current(), 600));
+        animDone = true;
+        finish();
       } else {
         setActive(idx);
         timers.push(setTimeout(advance, STAGE_MS));
       }
     };
     timers.push(setTimeout(advance, STAGE_MS));
-    return () => timers.forEach(clearTimeout);
-  }, []);
+
+    // 실제 분석: 케이스 생성 → 위험분석 실행 → 결과 저장.
+    if (real && session) {
+      (async () => {
+        try {
+          // 서류 단계에서 만든 케이스를 재사용. 없으면(예외 경로) 새로 생성.
+          const caseId = session.caseId ?? (await createCase(toApiStage(session.stage), session.property!.id)).id;
+          const result = await runAnalyze(caseId, session.risk!);
+          if (cancelled) return;
+          patchSession({ result });
+          apiDone = true;
+          finish();
+        } catch (e) {
+          if (!cancelled) setError(e instanceof Error ? e.message : '분석 중 오류가 발생했습니다.');
+        }
+      })();
+    }
+
+    return () => {
+      cancelled = true;
+      timers.forEach(clearTimeout);
+    };
+    // attempt 가 바뀌면(재시도) 전체 파이프라인을 다시 실행한다.
+  }, [attempt]);
+
+  if (error) {
+    return (
+      <View style={styles.screen}>
+        <View style={styles.errorIcon}>
+          <Feather name="alert-triangle" size={28} color={colors.danger} />
+        </View>
+        <AppText weight="bold" style={styles.title}>
+          분석에 실패했어요
+        </AppText>
+        <AppText color={colors.textSecondary} style={styles.subtitle}>
+          {error}
+        </AppText>
+        <View style={styles.errorActions}>
+          <View style={styles.flex}>
+            <WideButton
+              label="뒤로"
+              variant="outline"
+              height={50}
+              labelSize={14}
+              onPress={() => router.back()}
+            />
+          </View>
+          <View style={styles.flex}>
+            <WideButton
+              label="다시 시도"
+              height={50}
+              labelSize={14}
+              onPress={() => {
+                setActive(0);
+                setError(null);
+                setAttempt((a) => a + 1);
+              }}
+            />
+          </View>
+        </View>
+      </View>
+    );
+  }
 
   const current = STAGES[Math.min(active, STAGES.length - 1)];
 
@@ -191,6 +270,7 @@ export function AnalyzingScreen({ onDone }: { onDone: () => void }) {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg, alignItems: 'center', justifyContent: 'center', padding: 20 },
+  flex: { flex: 1 },
   emblemWrap: { width: 96, height: 96, alignItems: 'center', justifyContent: 'center' },
   ping: { position: 'absolute', width: 48, height: 48, borderRadius: 24, borderWidth: 2, borderColor: 'rgba(67, 97, 238, 0.45)' },
   ringOuter: { position: 'absolute', width: 96, height: 96, borderRadius: 48, borderWidth: 1.5, borderColor: 'rgba(67, 97, 238, 0.08)' },
@@ -207,8 +287,10 @@ const styles = StyleSheet.create({
     shadowRadius: 12,
     elevation: 8,
   },
+  errorIcon: { width: 64, height: 64, borderRadius: 20, backgroundColor: '#FEF2F2', alignItems: 'center', justifyContent: 'center' },
   title: { fontSize: 20, lineHeight: 28, color: colors.textPrimary, marginTop: 24, textAlign: 'center' },
-  subtitle: { fontSize: 14, lineHeight: 20, marginTop: 4, textAlign: 'center' },
+  subtitle: { fontSize: 14, lineHeight: 20, marginTop: 4, textAlign: 'center', paddingHorizontal: 24 },
+  errorActions: { flexDirection: 'row', gap: 10, marginTop: 28, width: 280 },
   list: { marginTop: 40, width: 280, gap: 10 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: radius.button, borderWidth: 1, padding: 14 },
   rowActive: {

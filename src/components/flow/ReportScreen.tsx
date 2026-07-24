@@ -5,8 +5,11 @@ import { type ComponentProps, useEffect, useRef, useState } from 'react';
 import { Alert, Animated, Easing, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { type AnalysisResult, gradeDescriptor } from '@/api/analysis';
+import { buildingTypeLabel, type Property } from '@/api/property';
 import { AppText } from '@/components/AppText';
 import { WideButton } from '@/components/WideButton';
+import { getSession } from '@/flow/analysisSession';
 import { colors, gradient, radius } from '@/theme';
 
 const RISK_SCORE = 37;
@@ -88,6 +91,9 @@ const RECOS: { priority: Priority; text: string }[] = [
   { priority: 'essential', text: '보증금이 공시지가의 70%를 초과하는지 반드시 확인하세요' },
   { priority: 'recommended', text: '계약 전 전세피해지원센터(1533-8119)에 무료 상담을 받으세요' },
 ];
+
+/** 천 단위 콤마 (Hermes Intl 미지원 대비 직접 포맷). */
+const formatManwon = (n: number): string => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
 
 function DataRow({ status, label, sub, value }: Row) {
   const cfg = STATUS[status];
@@ -234,16 +240,203 @@ function TabContent({ tab }: { tab: number }) {
   );
 }
 
-/**
- * 분석 리포트 (Figma 1-4 / "분석 카드" 48:5304). 뒤로가기·"새 분석"은 단계와
- * 무관해 세 단계가 동일 화면을 공유한다. 수치는 대표 데모 값.
- */
-export function ReportScreen() {
-  const insets = useSafeAreaInsets();
+/** 공용 하단 CTA(전세피해지원센터) + 면책 문구. */
+function ReportFooterCards() {
+  return (
+    <>
+      <LinearGradient colors={gradient.brand} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.ctaCard}>
+        <AppText weight="bold" color="rgba(255,255,255,0.8)" style={styles.ctaKicker}>
+          피해가 의심되시나요?
+        </AppText>
+        <AppText weight="bold" color={colors.white} style={styles.ctaOrg}>
+          전세피해지원센터
+        </AppText>
+        <AppText weight="bold" color={colors.white} style={styles.ctaPhone}>
+          1533-8119
+        </AppText>
+        <AppText color="rgba(255,255,255,0.7)" style={styles.ctaNote}>
+          무료 법률 상담 · 24시간 운영
+        </AppText>
+      </LinearGradient>
+
+      <View style={styles.disclaimer}>
+        <Feather name="info" size={16} color={colors.textSecondary} />
+        <AppText color={colors.textSecondary} style={styles.disclaimerText}>
+          본 리포트는 참고용이며 법적 효력이 없습니다. 계약의 최종 판단은 본인에게 있습니다.
+        </AppText>
+      </View>
+    </>
+  );
+}
+
+/** 실제 분석 결과 리포트 (analyze 응답 기반). */
+function RealReport({ result, property }: { result: AnalysisResult; property: Property | null }) {
+  const [tab, setTab] = useState(0);
+  const grade = gradeDescriptor(result.grade);
+  const target = result.score ?? 0;
+
+  // Count the score up + sweep the gauge on mount (payoff of the analyzing screen).
+  const scoreAnim = useRef(new Animated.Value(0)).current;
+  const [score, setScore] = useState(0);
+  useEffect(() => {
+    const id = scoreAnim.addListener(({ value }) => setScore(Math.round(value * target)));
+    Animated.timing(scoreAnim, { toValue: 1, duration: 900, easing: Easing.out(Easing.cubic), useNativeDriver: false }).start();
+    return () => scoreAnim.removeListener(id);
+  }, [scoreAnim, target]);
+  const gaugeWidth = scoreAnim.interpolate({ inputRange: [0, 1], outputRange: ['0%', `${target}%`] });
+
+  return (
+    <>
+      <AppText weight="semibold" color={colors.brand} style={styles.kicker}>
+        Report
+      </AppText>
+      <AppText weight="bold" style={styles.title}>
+        내 계약 분석 리포트
+      </AppText>
+      <AppText color={colors.textSecondary} style={styles.subtitle}>
+        규칙 기반 위험 분석 결과입니다.
+      </AppText>
+
+      {/* 종합 위험 지수 */}
+      <View style={styles.realScoreCard}>
+        <View style={styles.scoreTop}>
+          <View style={styles.flex}>
+            <AppText weight="semibold" color={colors.textSecondary} style={styles.scoreCaption}>
+              종합 위험 지수
+            </AppText>
+            <View style={styles.scoreRow}>
+              <AppText weight="bold" color={grade.color} style={styles.scoreNum}>
+                {result.score == null ? '—' : score}
+              </AppText>
+              <AppText weight="semibold" color={colors.textSecondary} style={styles.scoreMax}>
+                /100
+              </AppText>
+            </View>
+            <View style={styles.riskRow}>
+              <View style={[styles.riskDot, { backgroundColor: grade.color }]} />
+              <AppText weight="bold" color={grade.color} style={styles.riskLabel}>
+                {grade.label}
+              </AppText>
+            </View>
+          </View>
+          <View style={styles.realWarnTile}>
+            <Feather name="shield" size={28} color={grade.color} />
+          </View>
+        </View>
+
+        <View style={styles.realGaugeTrack}>
+          <Animated.View style={[styles.gaugeFill, { width: gaugeWidth, backgroundColor: grade.color }]} />
+        </View>
+        <AppText color={colors.textSecondary} style={styles.confidenceText}>
+          근거 충족률 {result.confidence}%
+        </AppText>
+      </View>
+
+      {/* 분석 대상 */}
+      {property ? (
+        <View style={styles.targetCard}>
+          <AppText weight="semibold" color={colors.textSecondary} style={styles.scoreCaption}>
+            분석 대상
+          </AppText>
+          <AppText weight="bold" style={styles.targetName}>
+            {property.address}
+          </AppText>
+          <View style={styles.targetMeta}>
+            <AppText color={colors.textSecondary} style={styles.targetMetaText}>
+              보증금 {formatManwon(property.depositAmount)}만원
+            </AppText>
+            <AppText color={colors.textSecondary} style={styles.targetMetaText}>
+              {buildingTypeLabel(property.buildingType)}
+            </AppText>
+          </View>
+        </View>
+      ) : null}
+
+      {/* 세그먼트 탭 */}
+      <View style={styles.segment}>
+        {['분석 요약', '위험 근거', '권고사항'].map((t, i) => (
+          <Pressable
+            key={t}
+            onPress={() => setTab(i)}
+            style={({ pressed }) => [styles.segItem, i === tab && styles.segActive, pressed && styles.segPressed]}
+          >
+            <AppText color={i === tab ? colors.white : '#000000'} style={styles.segText} numberOfLines={1}>
+              {t}
+            </AppText>
+          </Pressable>
+        ))}
+      </View>
+
+      <View style={styles.tabCard}>
+        {tab === 0 ? (
+          <>
+            <AppText weight="bold" style={styles.tabHeading}>
+              분석 요약
+            </AppText>
+            <AppText color={colors.textSecondary} style={styles.summaryText}>
+              {result.summary}
+            </AppText>
+          </>
+        ) : tab === 1 ? (
+          <>
+            <AppText weight="bold" style={styles.tabHeading}>
+              위험 근거
+            </AppText>
+            {result.findings.length ? (
+              <View style={styles.rows}>
+                {result.findings.map((f, i) => (
+                  <View key={i} style={styles.findingRow}>
+                    <Feather name="alert-triangle" size={16} color="#F59E0B" style={styles.dataIcon} />
+                    <AppText color={colors.textPrimary} style={styles.findingText}>
+                      {f}
+                    </AppText>
+                  </View>
+                ))}
+              </View>
+            ) : (
+              <AppText color={colors.textSecondary} style={styles.emptyText}>
+                특별한 위험 신호가 발견되지 않았습니다.
+              </AppText>
+            )}
+          </>
+        ) : (
+          <>
+            <AppText weight="bold" style={styles.tabHeading}>
+              권고사항
+            </AppText>
+            {result.recommendations.length ? (
+              <View style={styles.rows}>
+                {result.recommendations.map((r, i) => (
+                  <View key={i} style={styles.recoRow}>
+                    <View style={styles.recoNum}>
+                      <AppText weight="bold" color={colors.brand} style={styles.recoNumText}>
+                        {i + 1}
+                      </AppText>
+                    </View>
+                    <AppText color={colors.textPrimary} style={styles.recoText}>
+                      {r}
+                    </AppText>
+                  </View>
+                ))}
+              </View>
+            ) : (
+              <AppText color={colors.textSecondary} style={styles.emptyText}>
+                권고사항이 없습니다.
+              </AppText>
+            )}
+          </>
+        )}
+      </View>
+
+      <ReportFooterCards />
+    </>
+  );
+}
+
+/** 데모 리포트 (대표 데모 값 — 로그인/분석 없이 진입 시). */
+function DemoReport() {
   const [tab, setTab] = useState(0);
 
-  // Reveal the headline outcome (the payoff of the animated analyzing screen):
-  // count the score up and sweep the gauge from 0 on mount.
   const scoreAnim = useRef(new Animated.Value(0)).current;
   const [score, setScore] = useState(0);
   useEffect(() => {
@@ -259,6 +452,112 @@ export function ReportScreen() {
   const gaugeWidth = scoreAnim.interpolate({ inputRange: [0, 1], outputRange: ['0%', `${RISK_SCORE}%`] });
 
   return (
+    <>
+      <AppText weight="semibold" color={colors.brand} style={styles.kicker}>
+        Report
+      </AppText>
+      <AppText weight="bold" style={styles.title}>
+        내 계약 분석 리포트
+      </AppText>
+      <AppText color={colors.textSecondary} style={styles.subtitle}>
+        리포트를 확인해주세요.
+      </AppText>
+
+      {/* 종합 위험 지수 */}
+      <View style={styles.scoreCard}>
+        <View style={styles.scoreTop}>
+          <View style={styles.flex}>
+            <AppText weight="semibold" color={colors.textSecondary} style={styles.scoreCaption}>
+              종합 위험 지수
+            </AppText>
+            <View style={styles.scoreRow}>
+              <AppText weight="bold" color={colors.riskLow} style={styles.scoreNum}>
+                {score}
+              </AppText>
+              <AppText weight="semibold" color={colors.textSecondary} style={styles.scoreMax}>
+                /100
+              </AppText>
+            </View>
+            <View style={styles.riskRow}>
+              <View style={styles.riskDot} />
+              <AppText weight="bold" color={colors.riskLow} style={styles.riskLabel}>
+                저위험
+              </AppText>
+            </View>
+          </View>
+          <View style={styles.warnTile}>
+            <Feather name="alert-triangle" size={28} color={colors.riskLow} />
+          </View>
+        </View>
+
+        <View style={styles.gaugeTrack}>
+          <Animated.View style={[styles.gaugeFill, { width: gaugeWidth }]} />
+        </View>
+        <View style={styles.axis}>
+          <AppText weight="semibold" color={colors.riskLow} style={styles.axisLabel}>
+            저위험
+          </AppText>
+          <AppText weight="semibold" color="#FE9A00" style={styles.axisLabel}>
+            중위험
+          </AppText>
+          <AppText weight="semibold" color={colors.danger} style={styles.axisLabel}>
+            고위험
+          </AppText>
+        </View>
+      </View>
+
+      {/* 분석 대상 */}
+      <View style={styles.targetCard}>
+        <AppText weight="semibold" color={colors.textSecondary} style={styles.scoreCaption}>
+          분석 대상
+        </AppText>
+        <AppText weight="bold" style={styles.targetName}>
+          화성시 안녕동
+        </AppText>
+        <View style={styles.targetMeta}>
+          <AppText color={colors.textSecondary} style={styles.targetMetaText}>
+            보증금 2,000만원
+          </AppText>
+          <AppText color={colors.textSecondary} style={styles.targetMetaText}>
+            오피스텔
+          </AppText>
+        </View>
+      </View>
+
+      {/* 세그먼트 탭 */}
+      <View style={styles.segment}>
+        {TABS.map((t, i) => (
+          <Pressable
+            key={t}
+            onPress={() => setTab(i)}
+            style={({ pressed }) => [styles.segItem, i === tab && styles.segActive, pressed && styles.segPressed]}
+          >
+            <AppText color={i === tab ? colors.white : '#000000'} style={styles.segText} numberOfLines={1}>
+              {t}
+            </AppText>
+          </Pressable>
+        ))}
+      </View>
+
+      <TabContent tab={tab} />
+
+      <ReportFooterCards />
+    </>
+  );
+}
+
+/**
+ * 분석 리포트 (Figma 1-4 / "분석 카드" 48:5304). 뒤로가기·"새 분석"은 단계와 무관해
+ * 세 단계가 동일 화면을 공유한다. 세션에 실제 분석 결과가 있으면 그 값을, 없으면(데모
+ * 진입) 대표 데모 값을 보여준다.
+ */
+export function ReportScreen() {
+  const insets = useSafeAreaInsets();
+  const session = getSession();
+  const result = session?.result ?? null;
+  const property = session?.property ?? null;
+
+  return (
     <View style={[styles.screen, { paddingTop: insets.top }]}>
       <View style={styles.topBar}>
         <Pressable onPress={() => router.back()} hitSlop={8} style={({ pressed }) => [styles.back, pressed && styles.pressed]}>
@@ -269,117 +568,7 @@ export function ReportScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
-        <AppText weight="semibold" color={colors.brand} style={styles.kicker}>
-          Report
-        </AppText>
-        <AppText weight="bold" style={styles.title}>
-          내 계약 분석 리포트
-        </AppText>
-        <AppText color={colors.textSecondary} style={styles.subtitle}>
-          리포트를 확인해주세요.
-        </AppText>
-
-        {/* 종합 위험 지수 */}
-        <View style={styles.scoreCard}>
-          <View style={styles.scoreTop}>
-            <View style={styles.flex}>
-              <AppText weight="semibold" color={colors.textSecondary} style={styles.scoreCaption}>
-                종합 위험 지수
-              </AppText>
-              <View style={styles.scoreRow}>
-                <AppText weight="bold" color={colors.riskLow} style={styles.scoreNum}>
-                  {score}
-                </AppText>
-                <AppText weight="semibold" color={colors.textSecondary} style={styles.scoreMax}>
-                  /100
-                </AppText>
-              </View>
-              <View style={styles.riskRow}>
-                <View style={styles.riskDot} />
-                <AppText weight="bold" color={colors.riskLow} style={styles.riskLabel}>
-                  저위험
-                </AppText>
-              </View>
-            </View>
-            <View style={styles.warnTile}>
-              <Feather name="alert-triangle" size={28} color={colors.riskLow} />
-            </View>
-          </View>
-
-          <View style={styles.gaugeTrack}>
-            <Animated.View style={[styles.gaugeFill, { width: gaugeWidth }]} />
-          </View>
-          <View style={styles.axis}>
-            <AppText weight="semibold" color={colors.riskLow} style={styles.axisLabel}>
-              저위험
-            </AppText>
-            <AppText weight="semibold" color="#FE9A00" style={styles.axisLabel}>
-              중위험
-            </AppText>
-            <AppText weight="semibold" color={colors.danger} style={styles.axisLabel}>
-              고위험
-            </AppText>
-          </View>
-        </View>
-
-        {/* 분석 대상 */}
-        <View style={styles.targetCard}>
-          <AppText weight="semibold" color={colors.textSecondary} style={styles.scoreCaption}>
-            분석 대상
-          </AppText>
-          <AppText weight="bold" style={styles.targetName}>
-            화성시 안녕동
-          </AppText>
-          <View style={styles.targetMeta}>
-            <AppText color={colors.textSecondary} style={styles.targetMetaText}>
-              보증금 2,000만원
-            </AppText>
-            <AppText color={colors.textSecondary} style={styles.targetMetaText}>
-              오피스텔
-            </AppText>
-          </View>
-        </View>
-
-        {/* 세그먼트 탭 */}
-        <View style={styles.segment}>
-          {TABS.map((t, i) => (
-            <Pressable
-              key={t}
-              onPress={() => setTab(i)}
-              style={({ pressed }) => [styles.segItem, i === tab && styles.segActive, pressed && styles.segPressed]}
-            >
-              <AppText color={i === tab ? colors.white : '#000000'} style={styles.segText} numberOfLines={1}>
-                {t}
-              </AppText>
-            </Pressable>
-          ))}
-        </View>
-
-        <TabContent tab={tab} />
-
-        {/* 전세피해지원센터 */}
-        <LinearGradient colors={gradient.brand} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.ctaCard}>
-          <AppText weight="bold" color="rgba(255,255,255,0.8)" style={styles.ctaKicker}>
-            피해가 의심되시나요?
-          </AppText>
-          <AppText weight="bold" color={colors.white} style={styles.ctaOrg}>
-            전세피해지원센터
-          </AppText>
-          <AppText weight="bold" color={colors.white} style={styles.ctaPhone}>
-            1533-8119
-          </AppText>
-          <AppText color="rgba(255,255,255,0.7)" style={styles.ctaNote}>
-            무료 법률 상담 · 24시간 운영
-          </AppText>
-        </LinearGradient>
-
-        {/* 면책 */}
-        <View style={styles.disclaimer}>
-          <Feather name="info" size={16} color={colors.textSecondary} />
-          <AppText color={colors.textSecondary} style={styles.disclaimerText}>
-            본 리포트는 참고용이며 법적 효력이 없습니다. 계약의 최종 판단은 본인에게 있습니다.
-          </AppText>
-        </View>
+        {result ? <RealReport result={result} property={property} /> : <DemoReport />}
       </ScrollView>
 
       <View style={[styles.footer, { paddingBottom: insets.bottom + 24 }]}>
@@ -393,7 +582,12 @@ export function ReportScreen() {
             labelSize={14}
             icon={<Feather name="download" size={16} color={colors.white} />}
             iconPosition="leading"
-            onPress={() => Alert.alert('저장 완료', '리포트가 저장되었습니다. (데모)')}
+            onPress={() =>
+              Alert.alert(
+                '저장 완료',
+                result ? '분석 결과는 마이페이지 분석 내역에 저장되어 있어요.' : '리포트가 저장되었습니다. (데모)',
+              )
+            }
           />
         </View>
       </View>
@@ -428,6 +622,19 @@ const styles = StyleSheet.create({
   subtitle: { fontSize: 14, lineHeight: 20, marginTop: 4 },
 
   scoreCard: { marginTop: 16, backgroundColor: '#ECFDF5', borderWidth: 1, borderColor: '#D0FAE5', borderRadius: radius.card, padding: 20 },
+  realScoreCard: {
+    marginTop: 16,
+    backgroundColor: colors.white,
+    borderWidth: 1,
+    borderColor: colors.hairline,
+    borderRadius: radius.card,
+    padding: 20,
+    shadowColor: '#EEF2FF',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 1,
+    shadowRadius: 1.5,
+    elevation: 1,
+  },
   scoreTop: { flexDirection: 'row', alignItems: 'flex-start' },
   scoreCaption: { fontSize: 12, lineHeight: 16 },
   scoreRow: { flexDirection: 'row', alignItems: 'flex-end', marginTop: 4 },
@@ -437,10 +644,13 @@ const styles = StyleSheet.create({
   riskDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.riskLow },
   riskLabel: { fontSize: 16, lineHeight: 22 },
   warnTile: { width: 56, height: 56, borderRadius: 16, backgroundColor: 'rgba(16, 185, 129, 0.09)', alignItems: 'center', justifyContent: 'center' },
+  realWarnTile: { width: 56, height: 56, borderRadius: 16, backgroundColor: '#F1F5F9', alignItems: 'center', justifyContent: 'center' },
   gaugeTrack: { marginTop: 16, height: 10, borderRadius: radius.pill, backgroundColor: 'rgba(255, 255, 255, 0.6)', overflow: 'hidden' },
+  realGaugeTrack: { marginTop: 16, height: 10, borderRadius: radius.pill, backgroundColor: '#EEF2FF', overflow: 'hidden' },
   gaugeFill: { height: 10, borderRadius: radius.pill, backgroundColor: colors.riskLow },
   axis: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 },
   axisLabel: { fontSize: 10, lineHeight: 15 },
+  confidenceText: { fontSize: 12, lineHeight: 16, marginTop: 8 },
 
   targetCard: { marginTop: 12, backgroundColor: colors.white, borderWidth: 1, borderColor: colors.hairline, borderRadius: radius.button, padding: 16 },
   targetName: { fontSize: 14, lineHeight: 20, color: colors.textPrimary, marginTop: 4 },
@@ -465,12 +675,18 @@ const styles = StyleSheet.create({
   tabCard: { marginTop: 12, backgroundColor: colors.white, borderWidth: 1, borderColor: colors.hairline, borderRadius: radius.button, padding: 16 },
   tabHeading: { fontSize: 14, lineHeight: 20, color: colors.textPrimary },
   tabSub: { fontSize: 12, lineHeight: 16, marginTop: 4 },
+  summaryText: { fontSize: 13, lineHeight: 20, marginTop: 8 },
   rows: { marginTop: 12, gap: 8 },
   dataRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, borderRadius: radius.card, padding: 12 },
   dataIcon: { marginTop: 2 },
   dataLabel: { fontSize: 12, lineHeight: 16, color: colors.textPrimary },
   dataSub: { fontSize: 10, lineHeight: 14, marginTop: 1 },
   dataValue: { fontSize: 12, lineHeight: 16 },
+
+  // 실제 리포트 — 위험 근거 행.
+  findingRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, backgroundColor: '#FFFBEB', borderRadius: radius.card, padding: 12 },
+  findingText: { flex: 1, fontSize: 13, lineHeight: 19 },
+  emptyText: { fontSize: 13, lineHeight: 20, marginTop: 12 },
 
   // Tab 1 — 유사 사례 카드.
   cases: { marginTop: 4 },
@@ -499,10 +715,12 @@ const styles = StyleSheet.create({
   statCheck: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 12 },
   statNote: { fontSize: 11, lineHeight: 15 },
 
-  // Tab 3 — 권고사항.
+  // Tab 3 / 실제 권고사항.
   recoRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, backgroundColor: '#F8F9FF', borderRadius: radius.field, padding: 12 },
   recoBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: radius.pill },
   recoBadgeText: { fontSize: 10, lineHeight: 14 },
+  recoNum: { width: 20, height: 20, borderRadius: 10, backgroundColor: '#DBEAFE', alignItems: 'center', justifyContent: 'center' },
+  recoNumText: { fontSize: 11, lineHeight: 14 },
   recoText: { flex: 1, fontSize: 13, lineHeight: 19, marginTop: 1 },
 
   ctaCard: { marginTop: 16, borderRadius: radius.button, padding: 16 },

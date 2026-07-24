@@ -110,7 +110,7 @@ export function BehaviorChecklistScreen({ stage, onNext }: { stage: ContractStag
       </ScrollView>
 
       <View style={[styles.footer, { paddingBottom: insets.bottom + 24 }]}>
-        <WideButton label="AI 분석 시작하기" icon={<Feather name="settings" size={20} color={colors.white} />} onPress={onNext} />
+        <WideButton label="다음 단계로" icon={<Feather name="arrow-right" size={20} color={colors.white} />} onPress={onNext} />
       </View>
     </View>
   );

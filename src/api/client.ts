@@ -22,6 +22,8 @@ type RequestOptions = {
   body?: unknown;
   /** 기본 true. false 면 Authorization 헤더·401 재시도 없음 (로그인/재발급용). */
   auth?: boolean;
+  /** 추가 헤더 (예: analyze 의 Idempotency-Key). */
+  headers?: Record<string, string>;
 };
 
 async function parseError(res: Response): Promise<ApiError> {
@@ -69,8 +71,11 @@ function ensureRefresh(): Promise<boolean> {
 async function request<T>(path: string, opts: RequestOptions = {}, retry = false): Promise<T> {
   const { method = 'GET', body, auth = true } = opts;
 
-  const headers: Record<string, string> = {};
-  if (body !== undefined) headers['Content-Type'] = 'application/json';
+  // FormData(멀티파트 업로드)면 JSON 직렬화·Content-Type 지정을 하지 않는다
+  // (플랫폼이 boundary 포함 헤더를 스스로 설정하도록).
+  const isForm = typeof FormData !== 'undefined' && body instanceof FormData;
+  const headers: Record<string, string> = { ...opts.headers };
+  if (body !== undefined && !isForm) headers['Content-Type'] = 'application/json';
   if (auth) {
     const token = await getAccessToken();
     if (token) headers.Authorization = `Bearer ${token}`;
@@ -79,7 +84,7 @@ async function request<T>(path: string, opts: RequestOptions = {}, retry = false
   const res = await fetch(`${API_BASE_URL}${path}`, {
     method,
     headers,
-    body: body !== undefined ? JSON.stringify(body) : undefined,
+    body: body === undefined ? undefined : isForm ? (body as FormData) : JSON.stringify(body),
   });
 
   // accessToken 만료 → 재발급 후 1회만 재시도.
@@ -96,12 +101,14 @@ async function request<T>(path: string, opts: RequestOptions = {}, retry = false
 }
 
 export const api = {
-  get: <T>(path: string, auth = true) => request<T>(path, { method: 'GET', auth }),
-  post: <T>(path: string, body?: unknown, auth = true) =>
-    request<T>(path, { method: 'POST', body, auth }),
-  put: <T>(path: string, body?: unknown, auth = true) =>
-    request<T>(path, { method: 'PUT', body, auth }),
-  patch: <T>(path: string, body?: unknown, auth = true) =>
-    request<T>(path, { method: 'PATCH', body, auth }),
-  delete: <T>(path: string, auth = true) => request<T>(path, { method: 'DELETE', auth }),
+  get: <T>(path: string, auth = true, headers?: Record<string, string>) =>
+    request<T>(path, { method: 'GET', auth, headers }),
+  post: <T>(path: string, body?: unknown, auth = true, headers?: Record<string, string>) =>
+    request<T>(path, { method: 'POST', body, auth, headers }),
+  put: <T>(path: string, body?: unknown, auth = true, headers?: Record<string, string>) =>
+    request<T>(path, { method: 'PUT', body, auth, headers }),
+  patch: <T>(path: string, body?: unknown, auth = true, headers?: Record<string, string>) =>
+    request<T>(path, { method: 'PATCH', body, auth, headers }),
+  delete: <T>(path: string, auth = true, headers?: Record<string, string>) =>
+    request<T>(path, { method: 'DELETE', auth, headers }),
 };
